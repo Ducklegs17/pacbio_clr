@@ -1,3 +1,7 @@
 *.bam
 *.sam
 /0_raw*
+/.snakemake
+/SequelToolsResults
+/benchmarks
+/logs
