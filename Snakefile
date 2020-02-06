@@ -42,6 +42,6 @@ rule sequelToolsSubset:
 		"envs/sequelTools.yaml",
 	shell:
 		"""
-		(bash SequelTools.sh -t S -v -u {input.file} -T r -f s -o 0_raw/subset -R 0.01) 2> {log}
+		(bash SequelTools.sh -t S -v -u {input.file} -T r -f s -o 0_raw/subset) 2> {log}
 		"""
 	

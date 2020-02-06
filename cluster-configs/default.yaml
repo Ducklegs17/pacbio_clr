@@ -28,5 +28,5 @@ sequelTools :
 
 sequelToolsSubset :
         cpus-per-task : 1
-        mem           : "1000"
-        time          : "00-00:20:00"
+        mem           : "2000"
+        time          : "00-00:30:00"
