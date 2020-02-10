@@ -1,7 +1,0 @@
-#check anaconda cloud for new versions of stuff.
-channels:
- - bioconda
- - conda-forge
- - defaults
-dependencies: 
- - samtools=1.10
