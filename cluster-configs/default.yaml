@@ -26,7 +26,17 @@ sequelTools :
         mem           : "3000"
         time          : "00-01:05:00"
 
-sequelToolsSubset :
+sambamba_random :
+        cpus-per-task : 10
+        mem           : "200"
+        time          : "00-00:15:00"
+
+samtools_fasta :
         cpus-per-task : 1
-        mem           : "2000"
-        time          : "00-00:30:00"
+        mem           : "200"
+        time          : "00-00:01:00"
+
+make_fofn :
+        cpus-per-task : 1
+        mem           : "20"
+        time          : "00-00:00:30"
