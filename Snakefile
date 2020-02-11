@@ -1,11 +1,10 @@
 PREFIXES = ["m64015_90510_20042"]
 FRACS = ["0.01"]
 MAX_THREADS = 32
-
+LENGTH_CUTOFF = 5000
+LENGTH_CUTOFF_PR = 12000
 
 ECOLI_NUMS = ["1", "2", "3"]
-
-
 
 #Falcon is run locally as it handles its own job submission
 localrules:
@@ -17,8 +16,8 @@ rule all:
 		expand("0_raw/{PREFIX}_{FRAC}.subreads.bam", PREFIX = PREFIXES, FRAC = FRACS),
 		expand("1_fasta/{PREFIX}_{FRAC}.fasta", PREFIX = PREFIXES, FRAC = FRACS),
 		"fofn.txt",
-		"2_aligned/p_ctg.fa",
-		"2_aligned/a_ctg.fa",
+		expand("2_LC_{LENGTH_CUT}_LCPR_{LENGTH_CUT_PR}/2-asm-falcon/contig/p_ctg.fa", LENGTH_CUT = LENGTH_CUTOFF, LENGTH_CUT_PR = LENGTH_CUTOFF_PR),
+		expand("2_LC_{LENGTH_CUT}_LCPR_{LENGTH_CUT_PR}/2-asm-falcon/a_ctg.fa", LENGTH_CUT = LENGTH_CUTOFF, LENGTH_CUT_PR = LENGTH_CUTOFF_PR),
 
 #Check read quality and length stats
 rule sequelTools:
@@ -99,20 +98,25 @@ rule pb_falcon:
 	input:
 		file = expand("1_fasta/ecoli.{num}.fasta", num = ECOLI_NUMS),
 		fofn = "fofn.txt",
-	output:
-		primary_contigs = "2_aligned/p_ctg.fa",
-		associated_contigs = "2_aligned/a_ctg.fa",		
+		config = "fc_run.cfg",
+	output:	
+		primary_contigs = "2_LC_{length_cut}_LCPR_{length_cut_pr}/2-asm-falcon/contig/p_ctg.fa",
+		associated_contigs = "2_LC_{length_cut}_LCPR_{length_cut_pr}/2-asm-falcon/a_ctg.fa",
 	log:
-		"logs/pb_falcon/pb_falcon.log",
+		"../logs/pb_falcon/{length_cut}_{length_cut_pr}.log",
 	benchmark:       
-		"benchmarks/pb_falcon/pb_falcon.tsv",
+		"../benchmarks/pb_falcon/{length_cut}_{length_cut_pr}.tsv",
 	threads:
 		1     
 #	conda:
 #		"envs/falcon.yaml",
 	shell:  
-		"""    	
-		(fc_run fc_run.cfg) 2> {log} 
+		"""
+		mkdir -p 2_LC_{wildcards.length_cut}_LCPR_{wildcards.length_cut_pr}
+		cp -u {input.config} 2_LC_{wildcards.length_cut}_LCPR_{wildcards.length_cut_pr}/	
+		cp -u {input.fofn} 2_LC_{wildcards.length_cut}_LCPR_{wildcards.length_cut_pr}/
+		cd 2_LC_{wildcards.length_cut}_LCPR_{wildcards.length_cut_pr}		
+		(fc_run {input.config}) 2> {log} 
 		"""
 
 # Quast checks quality statistics of an assembly
