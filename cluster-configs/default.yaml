@@ -36,7 +36,18 @@ samtools_fasta :
         mem           : "200"
         time          : "00-00:01:00"
 
-make_fofn :
-        cpus-per-task : 1
-        mem           : "20"
-        time          : "00-00:00:30"
+flye :
+        cpus-per-task : 5
+        mem           : "15000"
+        time          : "00-00:40:00"
+
+
+#make_fofn :
+#        cpus-per-task : 1
+#        mem           : "20"
+#        time          : "00-00:00:30"
+
+#pb_falcon :
+#        cpus-per-task : 1
+#        mem           : "500"
+#        time          : "00-00:30:00"
