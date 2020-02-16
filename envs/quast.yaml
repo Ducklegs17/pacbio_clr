@@ -1,0 +1,7 @@
+#check anaconda cloud for new versions of stuff.
+channels:
+ - bioconda
+ - conda-forge
+ - defaults
+dependencies: 
+ - quast=5.0.2

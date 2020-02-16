@@ -3,11 +3,10 @@ FRACS = ["0.01"]
 MAX_THREADS = 32
 LENGTH_CUTOFF = 5000
 LENGTH_CUTOFF_PR = 12000
-
+BUSCO_TAX = [""]
 ECOLI_NUMS = ["1", "2", "3"]
 
-#Falcon is run locally as it handles its own job submission
-localrules:
+localrules: 
 	all
 
 rule all:
@@ -16,6 +15,8 @@ rule all:
 		expand("0_raw/{PREFIX}_{FRAC}.subreads.bam", PREFIX = PREFIXES, FRAC = FRACS),
 		expand("1_fasta/{PREFIX}_{FRAC}.fasta", PREFIX = PREFIXES, FRAC = FRACS),
 		"2_assembly/assembly.fasta",
+		"3_quast/quast_test/quast_done",
+		"4_busco/missing_busco_list.tsv",
 
 #Check read quality and length stats
 rule sequelTools:
@@ -24,9 +25,9 @@ rule sequelTools:
 	output:
 		"SequelToolsResults/summaryTable.txt",
 	log:
-		"logs/sequelTools/sequelTools.log"
+		"logs/sequelTools/sequelTools.log",
 	benchmark:
-		"benchmarks/sequelTools.tsv"
+		"benchmarks/sequelTools.tsv",
 	threads:
 		1
 	conda:
@@ -36,7 +37,7 @@ rule sequelTools:
 		(bash SequelTools.sh -t Q -v -u {input}) 2> {log} 
 		"""
 
-#Randmly subset the bam file
+#Randomly subset the bam file
 rule sambamba_random:
 	input:
 		"0_raw/{prefix}.subreads.bam",
@@ -71,16 +72,14 @@ rule samtools_fasta:
 		"envs/samtools.yaml",
 	shell:
 		"""
-		samtools fasta -0 {output} {input} -@ {threads}
+		(samtools fasta -0 {output} {input} -@ {threads}) 2> {log}
 		"""
 
 #Generate Flye assembly
 rule flye:
 	input:
 		file = expand("1_fasta/ecoli.{num}.fasta", num = ECOLI_NUMS),
-#		file = "1_fasta/ecoli.1.fasta"
 	output:
-#		dir = directory("2_assembly"),
 		ass = "2_assembly/assembly.fasta",
 	log:
 		"logs/flye/assembly.log",
@@ -89,7 +88,7 @@ rule flye:
 	threads:
 		5
 	params:
-		out = "2_assembly"
+		out = "2_assembly",
 	conda:
 		"envs/flye.yaml",
 	shell:
@@ -97,6 +96,48 @@ rule flye:
 		(flye --pacbio-raw {input.file} --genome-size 5.5m --out-dir {params.out} --threads {threads}) 2> {log}
 		"""
 
+rule quast:
+	input:
+		fasta = "2_assembly/assembly.fasta",
+	output:
+		"3_quast/quast_test/quast_done",
+	log:
+		"logs/quast/assembly.log",
+	benchmark:
+		"benchmarks/quast/assembly.tsv",
+	threads:
+		1
+	params:
+		out = "3_quast/quast_test"
+	conda:
+		"envs/quast.yaml",
+	shell:
+		"""
+		(quast {input.fasta} --threads {threads} -o {params.out}) 2> {log}
+		touch {output} 
+		"""
+
+#BUSCO checks for the presence of single copy orthologs
+#rule busco:
+#	input:
+#		fasta = "2_assembly/assembly.fasta",
+#	output:
+#		"4_busco/missing_busco_list.tsv",
+#	log:
+#		"logs/busco/ass.log",
+#	benchmark:
+#		"benchmarks/busco/ass.tsv",
+#	threads:
+#		1
+#	params:
+#		out = "4_busco",
+#		lineage = BUSCO_LINEAGE,
+#	conda:
+#		"envs/busco.yaml",
+#	shell:
+#		"""
+#		busco -m genome -i {input} -o {params.out} -l {params.lineage} -c {threads} 
+#		"""
 
 #Create the file of file names .txt for falcon
 #rule make_fofn:
@@ -140,43 +181,4 @@ rule flye:
 #		cp -u {input.fofn} 2_LC_{wildcards.length_cut}_LCPR_{wildcards.length_cut_pr}/
 #		cd 2_LC_{wildcards.length_cut}_LCPR_{wildcards.length_cut_pr}		
 #		(fc_run {input.config}) 2> {log} 
-		"""
-
-# Quast checks quality statistics of an assembly
-#rule quast:
-#	input:
-#
-#	output:
-#
-#	log:
-#
-#	benchmark:
-#	
-#	threads:
-#
-#	conda:
-#
-#	shell:
 #		"""
-#
-#		"""
-
-# BUSCO checks for the presence of single copy orthologs
-#rule busco:
-#	input:
-#
-#	output:
-#
-#	log:
-#
-#	benchmark:
-#
-#	threads:
-#
-#	conda:
-#
-#	shell:
-#		"""
-#
-#		"""
-
