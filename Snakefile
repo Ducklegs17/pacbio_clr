@@ -3,8 +3,12 @@ FRACS = ["0.01"]
 MAX_THREADS = 32
 LENGTH_CUTOFF = 5000
 LENGTH_CUTOFF_PR = 12000
-BUSCO_TAX = [""]
+#BUSCO_TAX = [""]
+BBDUK_KMER_LENGTH = ["17"]
+BBDUK_MIN_COVERAGE = ["0.7"]
 ECOLI_NUMS = ["1", "2", "3"]
+LENGTH_CHLOROPLAST = ["134502"]
+LENGTH_GENOME = ["5.5m"]
 
 localrules: 
 	all
@@ -12,11 +16,15 @@ localrules:
 rule all:
 	input:
 		"SequelToolsResults/summaryTable.txt",
-		expand("0_raw/{PREFIX}_{FRAC}.subreads.bam", PREFIX = PREFIXES, FRAC = FRACS),
-		expand("1_fasta/{PREFIX}_{FRAC}.fasta", PREFIX = PREFIXES, FRAC = FRACS),
-		"2_assembly/assembly.fasta",
-		"3_quast/quast_test/quast_done",
-		"4_busco/missing_busco_list.tsv",
+		expand("1_subset/{PREFIX}_{FRAC}.subreads.bam", PREFIX = PREFIXES, FRAC = FRACS),
+		expand("2_fastq/frac_{PREFIX}_{FRAC}.fastq", PREFIX = PREFIXES, FRAC = FRACS),
+		"3_assembly/assembly.fasta",
+		"4_quast/quast_test/quast_done",
+		expand("0_chloroplast/{PREFIX}_{KMER}_{COV}.subreads.fasta", PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE),
+		expand("2_fastq/all_{PREFIX}.fastq", PREFIX = PREFIXES),
+		expand("3_flye/chloroplast/{PREFIX}/kmer_{KMER}_cov_{COV}/assembly.fasta", PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE),
+		expand("3_raven/chloroplast/{PREFIX}/kmer_{KMER}_cov_{COV}/assembly.fasta", PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE),
+		expand("3_raven/chloroplast/{PREFIX}/kmer_{KMER}_cov_{COV}/assembly.gfa", PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE),
 
 #Check read quality and length stats
 rule sequelTools:
@@ -42,7 +50,7 @@ rule sambamba_random:
 	input:
 		"0_raw/{prefix}.subreads.bam",
 	output:
-		"0_raw/{prefix}_{frac}.subreads.bam",
+		"1_subset/{prefix}_{frac}.subreads.bam",
 	log:
 		"logs/sambamba_random/{prefix}_{frac}.log",
 	benchmark:
@@ -56,31 +64,31 @@ rule sambamba_random:
 		(sambamba view -h -t {threads} -f bam --subsampling-seed=123 -s {wildcards.frac} {input} -o {output}) 2> {log}
 		"""
 
-#Convert from bam to fasta
-rule samtools_fasta:
+#Convert from bam to fastq
+rule samtools_fastq:
 	input:
-		"0_raw/{prefix}_{frac}.subreads.bam",
+		"1_subset/{prefix}_{frac}.subreads.bam",
 	output:
-		"1_fasta/{prefix}_{frac}.fasta",
+		"2_fastq/frac_{prefix}_{frac}.fastq",
 	log:
-		"logs/samtools_fasta/{prefix}_{frac}.log",
+		"logs/samtools_fastq/{prefix}_{frac}.log",
 	benchmark:
-		"benchmarks/samtools_fasta/{prefix}_{frac}.tsv",
+		"benchmarks/samtools_fastq/{prefix}_{frac}.tsv",
 	threads:
 		1
 	conda:
 		"envs/samtools.yaml",
 	shell:
 		"""
-		(samtools fasta -0 {output} {input} -@ {threads}) 2> {log}
+		(samtools fastq -0 {output} {input} -@ {threads}) 2> {log}
 		"""
 
 #Generate Flye assembly
 rule flye:
 	input:
-		file = expand("1_fasta/ecoli.{num}.fasta", num = ECOLI_NUMS),
+		file = expand("2_fastq/ecoli.{num}.fastq", num = ECOLI_NUMS),
 	output:
-		ass = "2_assembly/assembly.fasta",
+		ass = "3_assembly/assembly.fasta",
 	log:
 		"logs/flye/assembly.log",
 	benchmark:
@@ -88,19 +96,19 @@ rule flye:
 	threads:
 		5
 	params:
-		out = "2_assembly",
+		out = "3_assembly", size = LENGTH_GENOME,
 	conda:
 		"envs/flye.yaml",
 	shell:
 		"""
-		(flye --pacbio-raw {input.file} --genome-size 5.5m --out-dir {params.out} --threads {threads}) 2> {log}
+		(flye --pacbio-raw {input.file} --genome-size {params.size} --out-dir {params.out} --threads {threads}) 2> {log}
 		"""
 
 rule quast:
 	input:
-		fasta = "2_assembly/assembly.fasta",
+		fasta = "3_assembly/assembly.fasta",
 	output:
-		"3_quast/quast_test/quast_done",
+		"4_quast/quast_test/quast_done",
 	log:
 		"logs/quast/assembly.log",
 	benchmark:
@@ -108,7 +116,7 @@ rule quast:
 	threads:
 		1
 	params:
-		out = "3_quast/quast_test"
+		out = "4_quast/quast_test"
 	conda:
 		"envs/quast.yaml",
 	shell:
@@ -117,12 +125,13 @@ rule quast:
 		touch {output} 
 		"""
 
+
 #BUSCO checks for the presence of single copy orthologs
 #rule busco:
 #	input:
 #		fasta = "2_assembly/assembly.fasta",
 #	output:
-#		"4_busco/missing_busco_list.tsv",
+#		"5_busco/missing_busco_list.tsv",
 #	log:
 #		"logs/busco/ass.log",
 #	benchmark:
@@ -138,6 +147,95 @@ rule quast:
 #		"""
 #		busco -m genome -i {input} -o {params.out} -l {params.lineage} -c {threads} 
 #		"""
+
+#=====================================================
+# Chloroplast assembly
+#=====================================================
+
+#convert raw bam files to fastq
+rule samtools_raw_fastq:
+	input:
+		"0_raw/{prefix}.subreads.bam",
+	output:
+		"2_fastq/all_{prefix}.fastq",
+	log:
+		"logs/samtools_raw_fastq/{prefix}_all.log",
+	benchmark:
+		"benchmarks/samtools_raw_fastq/{prefix}_all.tsv",
+	threads:
+		1
+	conda:
+		"envs/samtools.yaml",
+	shell:
+		"""
+		(samtools fastq -0 {output} {input} -@ {threads}) 2> {log}
+		"""
+
+
+#bbduk to extract chloroplast reads
+rule bbduk:
+	input:
+		fa = "2_fastq/all_{prefix}.fastq",
+		ref = "references/chloroplast.fasta",
+	output:
+		match = "0_chloroplast/{prefix}_{kmer}_{cov}.subreads.fasta",
+	log:
+		"logs/bbduk/{prefix}_{kmer}_{cov}.log",
+	benchmark:
+		"benchmarks/bbduk/{prefix}_{kmer}_{cov}.tsv",
+	threads:
+		10
+	conda:
+		"envs/bbmap.yaml",
+	shell:
+		"""
+		(bbduk.sh in={input.fa} outm={output.match} ref={input.ref} threads={threads} k={wildcards.kmer} -Xmx1g mincovfraction={wildcards.cov}) 2> {log}
+		"""
+
+#Assemble chloroplast using flye.
+rule flye_chloroplast:
+	input:
+		"0_chloroplast/{prefix}_{kmer}_{cov}.subreads.fasta",
+	output:
+		"3_flye/chloroplast/{prefix}/kmer_{kmer}_cov_{cov}/assembly.fasta",
+	log:
+		"logs/flye_chloroplast/{prefix}_{kmer}_{cov}.log",
+	benchmark:
+		"benchmarks/flye_chloroplast/{prefix}_{kmer}_{cov}.tsv",
+	threads:
+		5
+	params:
+		out = "3_flye/chloroplast/{prefix}/kmer_{kmer}_cov_{cov}",
+		size = LENGTH_CHLOROPLAST,  
+	conda:
+		"envs/flye.yaml",
+	shell:
+		"""
+		flye --pacbio-raw {input} --genome-size {params.size} --out-dir {params.out} --threads {threads}
+		"""	
+
+#Assemble chloroplast using Raven-assembler
+#only takes a single input file for long reads
+rule raven_chloroplast:
+	input:
+		"0_chloroplast/{prefix}_{kmer}_{cov}.subreads.fasta",
+	output:
+		fasta = "3_raven/chloroplast/{prefix}/kmer_{kmer}_cov_{cov}/assembly.fasta",
+		gfa = "3_raven/chloroplast/{prefix}/kmer_{kmer}_cov_{cov}/assembly.gfa",
+	log:
+		"logs/raven_chloroplast/{prefix}_{kmer}_{cov}.log",	
+	benchmark:
+		"benchmarks/raven_chloroplast/{prefix}_{kmer}_{cov}.tsv",
+	threads:
+		MAX_THREADS
+	conda:
+		"envs/raven.yaml",
+	shell:
+		"""
+		raven -t {threads} --polishing 1 --graphical-fragment-assembly {output.gfa} {input} > {output.fasta}
+		"""
+
+#Assemble chloroplast using canu? or miniasm?
 
 #Create the file of file names .txt for falcon
 #rule make_fofn:

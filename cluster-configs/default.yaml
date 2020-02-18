@@ -31,7 +31,7 @@ sambamba_random :
         mem           : "200"
         time          : "00-00:15:00"
 
-samtools_fasta :
+samtools_fastq :
         cpus-per-task : 1
         mem           : "200"
         time          : "00-00:01:00"
@@ -45,6 +45,29 @@ quast :
         cpus-per-task : 1
         mem           : "500"
         time          : "00-00:02:00"
+
+
+#Assembly of chloroplast
+samtools_raw_fastq :
+        cpus-per-task : 1
+        mem           : "500"
+        time          : "00-01:00:00"
+
+bbduk :
+        cpus-per-task : 10
+        mem           : "1000"
+        time          : "00-00:40:00"
+
+flye_chloroplast :
+        cpus-per-task : 5
+        mem           : "3000"
+        time          : "00-00:15:00"
+
+raven_chloroplast :
+        cpus-per-task : 5
+        mem           : "1000"
+        time          : "00-00:05:00"
+
 
 #make_fofn :
 #        cpus-per-task : 1
