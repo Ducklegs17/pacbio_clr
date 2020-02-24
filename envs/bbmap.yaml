@@ -5,3 +5,4 @@ channels:
  - defaults
 dependencies: 
  - bbmap=38.76
+ - samtools=1.10
