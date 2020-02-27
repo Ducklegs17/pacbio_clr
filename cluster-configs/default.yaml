@@ -41,6 +41,11 @@ bbduk :
         mem           : "10000"
         time          : "00-00:40:00"
 
+bbmap_sort:
+        cpus-per-task : 1
+        mem           : "3000"
+        time          : "00-00:01:00"
+
 #Seqtk subsets the reads to get the approximate desired coverage for the assembly
 seqtk_genome: 
         cpus-per-task : 1
@@ -66,7 +71,7 @@ flye_genome :
 flye :
         cpus-per-task : 10
         mem           : "15000"
-        time          : "00-00:30:00"
+        time          : "00-00:10:00"
 
 flye_mitochondria :
         cpus-per-task : 5
@@ -75,24 +80,29 @@ flye_mitochondria :
 
 quast :
         cpus-per-task : 1
-        mem           : "500"
-        time          : "00-00:02:00"
+        mem           : "200"
+        time          : "00-00:01:00"
 
 
 raven :
         cpus-per-task : 10
         mem           : "15000"
-        time          : "00-00:30:00"
+        time          : "00-00:10:00"
 
 smartdenovo :
         cpus-per-task : 10
         mem           : "15000"
-        time          : "00-00:30:00"
+        time          : "00-00:10:00"
+
+canu :
+        cpus-per-task : 1
+        mem           : "100"
+        time          : "00-00:15:00"
 
 mummer :
         cpus-per-task : 1
-        mem           : "500"
-        time          : "00-00:02:00"
+        mem           : "200"
+        time          : "00-00:01:00"
 
 
 #make_fofn :

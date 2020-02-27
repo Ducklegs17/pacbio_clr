@@ -1,0 +1,8 @@
+#check anaconda cloud for new versions of stuff.
+channels:
+ - bioconda
+ - conda-forge
+ - defaults
+dependencies: 
+ - mummer=3.23
+ - gnuplot=5.0.4
