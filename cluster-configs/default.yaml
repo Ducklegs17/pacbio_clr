@@ -96,8 +96,8 @@ smartdenovo :
 
 canu :
         cpus-per-task : 1
-        mem           : "100"
-        time          : "00-00:15:00"
+        mem           : "50"
+        time          : "00-05:00:00"
 
 mummer :
         cpus-per-task : 1
