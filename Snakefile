@@ -1,7 +1,9 @@
+# Instructions:
+
 PREFIXES = ["m64015_90510_20042"]
 MITOCONDRIA_REF = "reference/mitochondria.fasta"
 CHLOROPLASTS_REF = "reference/chloroplast.fasta",
-READ_COVERAGE = ["100","50","20","10"]
+READ_COVERAGE = ["25"]
 MAX_THREADS = 32
 BBDUK_KMER_LENGTH = ["17"]
 BBDUK_MIN_COVERAGE = ["0.7"]
@@ -9,23 +11,24 @@ LENGTH_CHLOROPLAST = ["134502"]
 LENGTH_MITOCHONDRIA = ["415805"]
 LENGTH_GENOME = ["5500000"]
 ASSEMBLY_TOOLS = ["flye","raven","smartdenovo","canu"]
-ASSEMBLY_TYPE = ["chloroplast"]
+ASSEMBLY_TYPE = ["genome"]
 READ_SELECTION_METHOD = ["longest"]
 
 localrules: 
 	all,
+	canu,
+	generate_coverage_list,
 
 rule all:
 	input:
 		"SequelToolsResults/summaryTable.txt",
 		expand("1_{ASS_TYPE}_reads/{PREFIX}_{KMER}_{COV}.fasta", ASS_TYPE = ASSEMBLY_TYPE, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE),
 		expand("1_{ASS_TYPE}_reads/sorted/{PREFIX}_{KMER}_{COV}.fasta", ASS_TYPE = ASSEMBLY_TYPE, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE),
+		expand("1_{ASS_TYPE}_reads/sorted/{PREFIX}_{KMER}_{COV}_coveragetable.txt", ASS_TYPE = ASSEMBLY_TYPE, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE),
 		expand("2_{ASS_TYPE}_subset/{READ_SELECTION}/{PREFIX}_{KMER}_{COV}_{DEPTH}.fasta", ASS_TYPE = ASSEMBLY_TYPE, READ_SELECTION = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
 		expand("3_{ASS_TYPE}_assembly/{TOOL}/{PREFIX}/{READ_SELECTION}_{KMER}_{COV}_{DEPTH}/assembly.fasta", ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, READ_SELECTION = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
-		expand("mummer/{ASS_TYPE}_ref/{PREFIX}_{READ_SELECTION}_query_{KMERQ}_{COVQ}_{DEPTHQ}.mums", PREFIX = PREFIXES, ASS_TYPE = ASSEMBLY_TYPE, READ_SELECTION = READ_SELECTION_METHOD, KMERQ = BBDUK_KMER_LENGTH, COVQ = BBDUK_MIN_COVERAGE, DEPTHQ = READ_COVERAGE), 
+		expand("mummer/{ASS_TYPE}/prefix_{PREFIX}_assemblytool_{TOOL}_readselect_{READ_SELECTION}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}.mums", PREFIX = PREFIXES, ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, READ_SELECTION = READ_SELECTION_METHOD, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE), 
 		expand("quast/assemblytype_{ASS_TYPE}_assemblytool_{TOOL}_prefix_{PREFIX}_readselect_{READ_SELECTION}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/report.tsv", ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, PREFIX = PREFIXES, READ_SELECTION = READ_SELECTION_METHOD, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
-
-"quast/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}/report.tsv"
 
 #Check read quality and length stats
 rule sequelTools:
@@ -45,25 +48,6 @@ rule sequelTools:
 		"""
 		(bash SequelTools.sh -t Q -v -u {input}) 2> {log} 
 		"""
-
-##Convert from bam to fastq
-#rule samtools_fastq:
-#	input
-#		"0_raw/{prefix}.subreads.bam",
-#	output:
-#		"1_fastq/{prefix}.fastq",
-#	log:
-#		"logs/samtools_fastq/{prefix}.log",
-#	benchmark:
-#		"benchmarks/samtools_fastq/{prefix}.tsv",
-#	threads:
-#		MAX_THREADS
-#	conda:
-#		"envs/samtools.yaml",
-#	shell:
-#		"""
-#		(samtools fastq -0 {output} {input} -@ {threads}) 2> {log}
-#		"""
 
 #subset bam into mitochondria and chloroplast
 rule bbduk:
@@ -88,50 +72,92 @@ rule bbduk:
 		bbduk.sh in={input.seq} outm={output.out} ref={input.ass} threads={threads} k={wildcards.kmer} -Xmx1g mincovfraction={wildcards.cov}
 		"""
 
-#rule bbduk_genome:
-#	input:
-#		seq = "0_raw/{prefix}.subreads.bam",
-#		refs = ["reference/chloroplast.fasta", "reference/mitochondria.fasta"],
-#	output:
-#		"1_genome_reads/{prefix}_{kmer}_{cov}.fastq",
-#	log:
-#		"logs/bbdukgenome/{prefix}_{kmer}_{cov}.log",
-#	benchmark:
-#		"benchmarks/bbdukgenome/prefix_{prefix}_kmer_{kmer}_cov_{cov}.tsv",
-#	wildcard_constraints:
-#		ass_type = "(genome)"
-#	threads:
-#		32
-#	conda:
-#		"envs/bbmap.yaml",
-#	shell:
-#		"""
-#		bbduk.sh in={input.seq} out={output} ref={input.refs} 
-#		"""
-	
+rule bbduk_genome:
+	input:
+		seq = "0_raw/{prefix}.subreads.bam",
+		ref1 = "reference/chloroplast.fasta", 
+		ref2 = "reference/mitochondria.fasta",
+	output:
+		"1_genome_reads/{prefix}_{kmer}_{cov}.fasta",
+	log:
+		"logs/bbdukgenome/assembly_type_genome_prefix_{prefix}_kmer_{kmer}_cov_{cov}.log",
+	benchmark:
+		"benchmarks/bbdukgenome/assemblytype_genome_prefix_{prefix}_kmer_{kmer}_cov_{cov}.tsv",
+	threads:
+		MAX_THREADS
+	conda:
+		"envs/bbmap.yaml",
+	shell:
+		"""
+		bbduk.sh in={input.seq} out={output} ref={input.ref1},{input.ref2} threads={threads} k={wildcards.kmer} -Xmx2g mincovfraction={wildcards.cov}
+		"""
 
 rule bbmap_sort:
 	input:
 		"1_{ass_type}_reads/{prefix}_{kmer}_{cov}.fasta",
 	output:
-		"1_{ass_type}_reads/sorted/{prefix}_{kmer}_{cov}.fasta",
+		fasta = "1_{ass_type}_reads/sorted/{prefix}_{kmer}_{cov}.fasta",
 	log:
 		"logs/bbmap_sort/{ass_type}_{prefix}_{kmer}_{cov}.log",
 	benchmark:
 		"benchmarks/bbmapsort/assemblytype_{ass_type}_prefix_{prefix}_kmer_{kmer}_cov_{cov}.tsv",
 	threads:
 		1
+	wildcard_constraints:
+		ass_type = "(mitochondria|chloroplast|genome)",
+#	shadow:
+#		"shallow"
 	conda:
 		"envs/bbmap.yaml",
 	shell:
 		"""
-		sortbyname.sh in={input} out={output} name=f length=t ascending=f -Xmx1g
+#increased Xmx option from 1g to 10g for sorting genome. also increased time from 1 min to 1 hr.
+		(sortbyname.sh in={input} out={output.fasta} name=f length=t ascending=f -Xmx60g) 2> {log}
+		"""
+
+rule generate_coverage_list:
+	input:
+		"1_{ass_type}_reads/sorted/{prefix}_{kmer}_{cov}.fasta",	
+	output:
+		"1_{ass_type}_reads/sorted/{prefix}_{kmer}_{cov}_coveragetable.txt",
+	log:
+		"logs/generate_coverage_list/assemblytype_{ass_type}_prefix_{prefix}_kmer_{kmer}_cov_{cov}.log",	
+	benchmark:
+		"benchmarks/generatecoveragelist/assemblytype_{ass_type}_prefix_{prefix}_kmer_{kmer}_cov_{cov}.tsv",
+	threads:
+		1
+	params:
+		length_mito = LENGTH_MITOCHONDRIA,
+		length_chloro = LENGTH_CHLOROPLAST,
+		length_genome = LENGTH_GENOME,
+	shell:
+		"""  
+		if [ {wildcards.ass_type} == "chloroplast" ]; then
+			LEN={params.length_chloro}
+		elif [ {wildcards.ass_type} == "mitochondria" ]; then
+			LEN={params.length_mito}
+		elif [ {wildcards.ass_type} == "genome" ]; then
+			LEN={params.length_genome}
+		fi	
+		touch length.tmp && rm length.tmp
+		x=0
+		awk '/^>/{{if (l!="") print l; l=0; next}}{{l+=length($0)}}' {input} >> length.tmp
+		
+		while IFS= read -r line
+		do
+			x=$(( ${{x}} + ${{line}} ))
+			pr=$(( ${{x}} / ${{LEN}} ))
+			echo "${{pr}}" >> {output}
+		done < "length.tmp"
+
+		rm length.tmp
 		"""
 	
 #subset each to specified depth for each genome
 rule select_longest:
 	input:
-		"1_{ass_type}_reads/sorted/{prefix}_{kmer}_{cov}.fasta",
+		fa = "1_{ass_type}_reads/sorted/{prefix}_{kmer}_{cov}.fasta",
+		list = "1_{ass_type}_reads/sorted/{prefix}_{kmer}_{cov}_coveragetable.txt",
 	output:
 		"2_{ass_type}_subset/longest/{prefix}_{kmer}_{cov}_{depth}.fasta",
 	log:
@@ -142,7 +168,7 @@ rule select_longest:
 		1
 	params:
 		length_mito = LENGTH_MITOCHONDRIA,
-		length_chloro = LENGTH_MITOCHONDRIA,
+		length_chloro = LENGTH_CHLOROPLAST,
 		length_genome = LENGTH_GENOME,
 	shell:
 		"""
@@ -154,58 +180,18 @@ rule select_longest:
 			LEN={params.length_genome}
 		fi	
 		
-		BP_READS="$(grep -v "^>" {input} | wc | awk "{{print \$3-\$1}}")"
-		NO_READS="$(grep '>' {input} | wc -l)"
-		echo "Total number of reads: ${{NO_READS}}"
-		AVG="$(( ${{BP_READS}} / ${{NO_READS}} ))"
-		echo "AVG length of reads: ${{AVG}}"
-		NUM="$(( ${{LEN}} * {wildcards.depth} / ${{AVG}} ))"
-		echo "Number of reads required to achieve depth of {wildcards.depth}: ${{NUM}}"
-		MAX_DEPTH="$(( ${{BP_READS}} / ${{LEN}} ))"
-		if [ ${{NUM}} -gt ${{NO_READS}} ]; then
-			NUM=${{NO_READS}}
+		NO_READS=$(grep '^>' {input.fa} | wc -l)
+		NUM=$(awk '$1<{wildcards.depth}{{c++}} END{{print c+0}}' {input.list})
+		NUM=$(( ${{NUM}} + 1 ))
+		
+		if [ ${{NUM}} -eq ${{NO_READS}} ]; then
+			DEPTH=$( tail -n 1 {input.list})
 			echo "Number of reads required for requested coverage is greater than the number of reads available." 
-			echo "All reads will be used, giving a coverage depth of ${{MAX_DEPTH}}x"
+			echo "All reads will be used, giving a coverage depth of ${{DEPTH}}x"
 		fi
-		echo "Subsetting ..."
+		
 		awk "/^>/ {{n++}} n>${{NUM}} {{exit}} {{print}}" {input} > {output}
-		"""
-
-rule seqtk_mitochondria:
-	input:
-		"1_mitochondria_reads/{prefix}_{kmer}_{cov}.fasta",
-	output:
-		"2_mitochondria_subset/random/{prefix}_{kmer}_{cov}_{depth}.fasta",
-	log:
-		"logs/seqtk/mitochondria/{prefix}_random_{kmer}_{cov}_{depth}.log",
-	benchmark:
-		"benchmarks/seqtk/mitochondria/{prefix}_random_{kmer}_{cov}_{depth}.tsv",
-	threads:
-		1
-	params:
-		length = LENGTH_MITOCHONDRIA,
-	conda:
-		"envs/seqtk.yaml",
-	shell:
-		"""
-
-
-		BP_READS="$(grep -v "^>" {input} | wc | awk "{{print \$3-\$1}}")"
-#		sed -n '2~4p' ../1_mitochondria_reads/m64015_90510_20042_17_0.7.fastq | awk '{{tot+=length($1)}}END{{print tot}}'
-		NO_READS="$(grep '>' {input} | wc -l)"
-		echo "Total number of reads: ${{NO_READS}}"
-		AVG="$(( ${{BP_READS}} / ${{NO_READS}} ))"
-		echo "AVG length of reads: ${{AVG}}"
-		NUM="$(( {params.length} * {wildcards.depth} / ${{AVG}} ))"
-		echo "Number of reads required to achieve depth of {wildcards.depth}: ${{NUM}}"
-		MAX_DEPTH="$(( ${{BP_READS}} / {params.length} ))"
-		if [ ${{NUM}} -gt ${{NO_READS}} ]; then
-			NUM=${{NO_READS}}
-			echo "Number of reads required for requested coverage is greater than the number of reads available." 
-			echo "All reads will be used, giving a coverage depth of ${{MAX_DEPTH}}x"
-		fi
-		echo "Subsetting ..."
-		seqtk sample -s100 {input} ${{NUM}} > {output}
+		
 		"""
 
 rule seqtk:
@@ -222,17 +208,20 @@ rule seqtk:
 	params:
 		chlor = LENGTH_CHLOROPLAST,
 		mito = LENGTH_MITOCHONDRIA,
+	wildcard_constraints:
+		ass_type = "(mitochondria|chloroplast)",
 	conda:
 		"envs/seqtk.yaml",
 	shell:
 		"""
-		if [ {wildcards.asstype} == "chloroplast" ]; then
+		if [ {wildcards.ass_type} == "chloroplast" ]; then
 			LENGTH={params.chlor}
 		fi
 
-		if [ {wildcards.asstype} == "mitochondria" ]; then
+		if [ {wildcards.ass_type} == "mitochondria" ]; then
 			LENGTH={params.mito}
 		fi
+
 
 		BP_READS="$(grep -v "^>" {input} | wc | awk "{{print \$3-\$1}}")"
 #		sed -n '2~4p' ../1_mitochondria_reads/m64015_90510_20042_17_0.7.fastq | awk '{{tot+=length($1)}}END{{print tot}}'
@@ -254,13 +243,13 @@ rule seqtk:
 
 rule seqtk_genome:
 	input:
-		"1_genome_reads/{prefix}_{kmer}_{cov}.fastq",
+		"1_genome_reads/{prefix}_{kmer}_{cov}.fasta",
 	output:
-		"2_genome_subset/{prefix}_{kmer}_{cov}_{depth}.fastq",
+		"2_genome_subset/random/{prefix}_{kmer}_{cov}_{depth}.fasta",
 	log:
-		"logs/seqtk/genome/{prefix}_{kmer}_{cov}_{depth}.log",
+		"logs/seqtk/genome_{prefix}_random_{kmer}_{cov}_{depth}.log",
 	benchmark:
-		"benchmarks/seqtk/genome/{prefix}_{kmer}_{cov}_{depth}.tsv",
+		"benchmarks/seqtk/assemblytype_genome_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
 		1
 	params:
@@ -269,38 +258,61 @@ rule seqtk_genome:
 		"envs/seqtk.yaml",
 	shell:
 		"""
-		BP_READS=$(grep -v '>' {input} | wc | awk '{{print $3-$1}}')
-		NO_READS=$(grep '>' {input} | wc -l)
-		AVG=$((BP_READS / NO_READS))
-		NUM=$(({params.length}*100/AVG))
-		if [ ${{NUM}} > ${{NO_READS}} ]; then
+		BP_READS="$(grep -v "^>" {input} | wc | awk "{{print \$3-\$1}}")"
+		NO_READS="$(grep '>' {input} | wc -l)"
+		echo "Total number of reads: ${{NO_READS}}"
+		AVG="$(( ${{BP_READS}} / ${{NO_READS}} ))"
+		echo "AVG length of reads: ${{AVG}}"
+		NUM="$(( {params.length} * {wildcards.depth} / ${{AVG}} ))"
+		echo "Number of reads required to achieve depth of {wildcards.depth}: ${{NUM}}"
+		MAX_DEPTH="$(( ${{BP_READS}} / {params.length} ))"
+		if [ ${{NUM}} -gt ${{NO_READS}} ]; then
 			NUM=${{NO_READS}}
+			echo "Number of reads required for requested coverage is greater than the number of reads available." 
+			echo "All reads will be used, giving a coverage depth of ${{MAX_DEPTH}}x"
 		fi
+		echo "Subsetting ..."
 		seqtk sample -s100 {input} ${{NUM}} > {output}
 		"""
-
 
 #Generate Flye assembly
 
 rule flye_genome:
 	input:
-		"2_genome_subset/{prefix}_{kmer}_{cov}_{depth}.fastq",
+		"2_genome_subset/{read_select}/{prefix}_{kmer}_{cov}_{depth}.fasta",
 	output:
-		"3_genome_assembly/flye/{prefix}/{kmer}_{cov}_{depth}/assembly.fasta"
+		"3_genome_assembly/flye/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta"
 	log:
-		"logs/flye/genome/{prefix}_{kmer}_{cov}_{depth}.log",
+		"logs/flye/genome/{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
 	benchmark:
-		"benchmarks/flye/genome/{prefix}_{kmer}_{cov}_{depth}.tsv",
+		"benchmarks/flyegenome/assemblytype_genome_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
 		MAX_THREADS
 	params:
-		out = "3_genome_assembly/flye/{prefix}/{kmer}_{cov}_{depth}/assembly.fasta",
+		out = "3_genome_assembly/flye/{prefix}/{read_select}_{kmer}_{cov}_{depth}",
 		size = LENGTH_GENOME,
 	conda:
 		"envs/flye.yaml",
 	shell:
 		"""
-		(flye --pacbio-raw {input} --genome-size {params.size} --out-dir {params.out} --threads {threads}) 2> {log}
+		SIZE={params.size}
+		echo "Starting genome assembly ..."
+		FIRST="${{SIZE:0:1}}"
+		SECOND="${{SIZE:1:1}}"
+
+		if [ ${{#SIZE}} == "6" ]; then
+		        NUSIZE="0.${{FIRST}}m"             
+		elif [ ${{#SIZE}} == "7" ]; then
+		        NUSIZE="${{FIRST}}.${{SECOND}}m"
+		elif [ ${{#SIZE}} == "8" ]; then
+		        NUSIZE="${{FIRST}}${{SECOND}}m"
+		elif [ ${{#SIZE}} == "9" ]; then
+		        NUSIZE="${{FIRST}}.${{SECOND}}g"
+		elif ${{#SIZE}} == "10" ]; then
+			NUSIZE="${{FIRST}}${{SECOND}}g"
+		fi
+
+		(flye --pacbio-raw {input} --genome-size ${{NUSIZE}} --out-dir {params.out} --threads {threads}) 2> {log}
 		"""
 
 rule flye:
@@ -311,13 +323,15 @@ rule flye:
 	log:
 		"logs/flye/{ass_type}/{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
 	benchmark:
-		"benchmarks/flye/{ass_type}/{read_select}_{prefix}_{kmer}_{cov}_{depth}.tsv",
+		"benchmarks/flye/assemblytype_{ass_type}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
-		10
+		20
 	params:
 		out = "3_{ass_type}_assembly/flye/{prefix}/{read_select}_{kmer}_{cov}_{depth}",
 		chlor = LENGTH_CHLOROPLAST,
 		mito = LENGTH_MITOCHONDRIA,
+	wildcard_constraints:
+		ass_type = "(mitochondria|chloroplast)",
 	conda:
 		"envs/flye.yaml",
 	shell:
@@ -332,6 +346,7 @@ rule flye:
 			SIZE={params.mito}
 			echo "Starting mitochondria assembly ..."
 		fi
+
 
 		FIRST="${{SIZE:0:1}}"
 		SECOND="${{SIZE:1:1}}"
@@ -363,9 +378,9 @@ rule raven:
 	log:
 		"logs/raven/{ass_type}/{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",	
 	benchmark:
-		"benchmarks/raven/{ass_type}/{read_select}_{prefix}_{kmer}_{cov}_{depth}.tsv",
+		"benchmarks/raven/assemblytype_{ass_type}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
-		10
+		MAX_THREADS
 	conda:
 		"envs/raven.yaml",
 	shell:
@@ -384,9 +399,9 @@ rule smartdenovo:
 	shadow:
 		"shallow"
 	benchmark:
-		"benchmarks/smartdenovo/{ass_type}/{read_select}_{prefix}_{kmer}_{cov}_{depth}.tsv",
+		"benchmarks/smartdenovo/assemblytype_{ass_type}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
-		10
+		MAX_THREADS
 	params:
 		prefix = "assembly",
 		location = "3_{ass_type}_assembly/smartdenovo/{prefix}/{read_select}_{kmer}_{cov}_{depth}",
@@ -401,6 +416,7 @@ rule smartdenovo:
 		mv {params.location}/assembly.fa {params.location}/assembly.fasta
 		"""
 
+#Not sure if job names are necessary to run many jobs in parallel. As it is below, can't run for more than 1 different prefix at a time if job names are necessary. 
 rule canu:
 	input:
 		"2_{ass_type}_subset/{read_select}/{prefix}_{kmer}_{cov}_{depth}.fasta",
@@ -409,7 +425,7 @@ rule canu:
 	log:
 		"logs/canu/{ass_type}/{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
 	benchmark:
-		"benchmarks/canu/{ass_type}_{read_select}_{kmer}_{cov}_{depth}_{prefix}.tsv"
+		"benchmarks/canu/assemblytype_{ass_type}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}_prefix_{prefix}.tsv"
 	threads:
 		1
 	params:
@@ -417,33 +433,67 @@ rule canu:
 		dir = "3_{ass_type}_assembly/canu/{prefix}/{read_select}_{kmer}_{cov}_{depth}",
 		chlor = LENGTH_CHLOROPLAST,
 		mito = LENGTH_MITOCHONDRIA,
+		genome = LENGTH_GENOME,
+		jobName = "{depth}{kmer}{cov}",
 #	conda:
 #		"envs/canu.yaml",
 	shell:
 		"""
+		cp canuFailure.sh {params.dir}
+
 		if [ {wildcards.ass_type} == 'chloroplast' ]; then
 			SIZE={params.chlor}
-			echo "Starting chloroplast assembly ..."
+			JTIME="--time=00:40:00"
+			echo "Starting job {params.jobName}, chloroplast assembly."
 		fi
 
 		if [ {wildcards.ass_type} == 'mitochondria' ]; then
 			SIZE={params.mito}
-			echo "Starting mitochondria assembly ..."
+			JTIME="--time=00:40:00"
+			echo "Starting job {params.jobName}, mitochondria assembly."
 		fi
 		
-		canu -p {params.prefix} -d {params.dir} genomeSize=${{SIZE}} -pacbio-raw {input} onSuccess=touch
+		if [ {wildcards.ass_type} == 'genome' ]; then
+			SIZE={params.genome}
+			JTIME="--time=04:00:00"
+			echo "Starting job {params.jobName}, genome assembly."
+		fi
+		
+		(canu -p {params.prefix} -d {params.dir} genomeSize=${{SIZE}} gridOptions=${{JTIME}} gridOptionsJobName={params.jobName} gridOptionsExecutive="--time=00:10:00" executiveMemory=1 -pacbio-raw {input} onSuccess=touch onFailure=./canuFailure.sh) 2> {log}
 
 		while :
 		do 
 			if [ -f {params.dir}/{params.prefix} ]; then
-				echo "Canu is finished!"
+				echo "Canu job {params.jobName} is finished!"
+				mv {params.dir}/assembly.contigs.fasta {params.dir}/assembly.fasta
+				break
+			fi
+			if [ -f {params.dir}/failure ]; then
+				echo "You're not a failure but Canu job {params.jobName} is"
 				break
 			fi
 			sleep 5m 
 		done
-
-		mv {params.dir}/assembly.contigs.fasta {params.dir}/assembly.fasta
+		
 		"""
+
+#rule arrow_polish:
+#	input:
+#		"3_{ass_type}_assembly/canu/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
+#	output:
+#		"4_{ass_type}_polished/canu/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
+#	log:
+#		
+#	benchmark:
+#
+#	params:
+#		
+#	conda:
+#		"envs/pbgcpp.yaml",
+#	shell:
+#		"""
+#		quiver aligned_reads.bam 
+#		"""
 
 rule quast:
 	input:
@@ -453,7 +503,7 @@ rule quast:
 	log:
 		"logs/quast/{ass_type}/{tool}/{prefix}_{read_select}_{kmer}_{cov}_{depth}.log",
 	benchmark:
-		"benchmarks/quast/{ass_type}/{tool}/{prefix}_{read_select}_{kmer}_{cov}_{depth}.tsv",
+		"benchmarks/quast/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
 		1
 	params:
@@ -469,58 +519,95 @@ rule mummer:
 	input:
 		chlor = "reference/chloroplast.fasta",
 		mito = "reference/mitochondria.fasta",
-		query = "3_{ass_type}_assembly/flye/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
+		query = "3_{ass_type}_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
 	output:
-		mums = "mummer/{ass_type}_ref/{prefix}_{read_select}_query_{kmer}_{cov}_{depth}.mums",
-		gp = "mummer/{ass_type}_ref/{prefix}_{read_select}_query_{kmer}_{cov}_{depth}.gp",
+		mums = "mummer/{ass_type}/prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.mums",
+		gp = "mummer/{ass_type}/prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.gp",
 	log:
-		"logs/mummer/{prefix}_{ass_type}/{read_select}_ref_query_{kmer}_{cov}_{depth}.log",
+		"logs/mummer/{prefix}_{ass_type}/{read_select}_assemblytool_{tool}_ref_query_{kmer}_{cov}_{depth}.log",
 	benchmark:
-		"benchmarks/mummer/prefix_{prefix}_assemblytype_{ass_type}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+		"benchmarks/mummer/prefix_{prefix}_assemblytool_{tool}_assemblytype_{ass_type}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
 		1
 	shadow:
 		"shallow"
 	params:
-		pref = "{prefix}_{read_select}_query_{kmer}_{cov}_{depth}",
+		pref = "prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}",
 	conda:
 		"envs/mummer.yaml",
 	shell:
 		"""
+
 		if [ {wildcards.ass_type} == "chloroplast" ]; then
-		
+
 			mummer -mum -b -c {input.chlor} {input.query} > {params.pref}.mums
 			mummerplot --postscript --prefix={params.pref} {params.pref}.mums
-			mv {params.pref}.* mummer/{wildcards.ass_type}_ref
+			nucmer -maxmatch -c 100 -p {params.pref} {input.chlor} {input.query}
+			show-coords -r -c -H -d -o -T -l {params.pref}.delta > {params.pref}.coords
+			show-snps -C -l -r -T -H {params.pref}.delta > {params.pref}.snps
+			show-tiling {params.pref}.delta > {params.pref}.tiling
+			mv {params.pref}.* mummer/{wildcards.ass_type}
 		fi
 
 		if [ {wildcards.ass_type} == "mitochondria" ]; then
 			mummer -mum -b -c {input.mito} {input.query} > {params.pref}.mums
 			mummerplot --postscript --prefix={params.pref} {params.pref}.mums
-			mv {params.pref}.* mummer/{wildcards.ass_type}_ref
+			nucmer -maxmatch -c 100 -p {params.pref} {input.chlor} {input.query}
+			show-coords -r -c -H -d -o -T -l {params.pref}.delta > {params.pref}.coords
+			show-snps -C -l -r -T -H {params.pref}.delta > {params.pref}.snps
+			show-tiling {params.pref}.delta > {params.pref}.tiling
+			mv {params.pref}.* mummer/{wildcards.ass_type}
 		fi
 		"""
 
-#rule flye_mitochondria:
-#	input:
-#		"2_mitochondria_subset/{prefix}_{kmer}_{cov}_{depth}.fastq",
-#	output:
-#		"3_mitochondria_assembly/flye/{prefix}/{kmer}_{cov}_{depth}/assembly.fasta"
-#	log:
-#		"logs/flye/mitochondria/{prefix}_{kmer}_{cov}_{depth}.log",
-#	benchmark:
-#		"benchmarks/flye/mitochondria/{prefix}_{kmer}_{cov}_{depth}.tsv",
-#	threads:
-#		5
-#	params:
-#		out = "3_mitochondria_assembly/flye/{prefix}/{kmer}_{cov}_{depth}/assembly.fasta",
-#		size = LENGTH_MITOCHONDRIA,
-#	conda:
-#		"envs/flye.yaml",
-#	shell:
-#		"""
-#		(flye --pacbio-raw {input} --genome-size {params.size} --out-dir {params.out} --threads {threads}) 2> {log}
-#		"""
+rule run_mummer3:
+	input:
+		chlor = "reference/chloroplast.fasta",
+		mito = "reference/mitochondria.fasta",
+		query = "3_{ass_type}_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
+	output:
+		mums = "runmummer3/{ass_type}/prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.mums",
+		gp = "runmummer3/{ass_type}/prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.gp",
+	log:
+		"logs/run_mummer3/{prefix}_{ass_type}/{read_select}_assemblytool_{tool}_ref_query_{kmer}_{cov}_{depth}.log",
+	benchmark:
+		"benchmarks/runmummer3/prefix_{prefix}_assemblytool_{tool}_assemblytype_{ass_type}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+	threads:
+		1
+	shadow:
+		"shallow"
+	params:
+		pref = "prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}",
+	conda:
+		"envs/mummer.yaml",
+	shell:
+		"""
+
+
+		if [ {wildcards.ass_type} == "chloroplast" ]; then
+
+			run-mummer3 {input.chlor} {input.query} {params.pref}.mums
+			mummerplot --postscript --prefix={params.pref} {params.pref}.mums
+			nucmer -maxmatch -c 100 -p {params.pref} {input.chlor} {input.query}
+			show-coords -r -c -H -d -o -T -l {params.pref}.delta > {params.pref}.coords
+			show-snps -C -l -r -T -H {params.pref}.delta > {params.pref}.snps
+			show-tiling {params.pref}.delta > {params.pref}.tiling
+			mv {params.pref}.* mummer/{wildcards.ass_type}
+		fi
+
+		if [ {wildcards.ass_type} == "mitochondria" ]; then
+			mummer -mum -b -c {input.mito} {input.query} > {params.pref}.mums
+			mummerplot --postscript --prefix={params.pref} {params.pref}.mums
+			nucmer -maxmatch -c 100 -p {params.pref} {input.chlor} {input.query}
+			show-coords -r -c -H -d -o -T -l {params.pref}.delta > {params.pref}.coords
+			show-snps -C -l -r -T -H {params.pref}.delta > {params.pref}.snps
+			show-tiling {params.pref}.delta > {params.pref}.tiling
+			mv {params.pref}.* mummer/{wildcards.ass_type}
+		fi
+
+		"""
+
+
 
 #BUSCO checks for the presence of single copy orthologs
 #rule busco:
@@ -547,75 +634,6 @@ rule mummer:
 #=====================================================
 # Chloroplast assembly
 #=====================================================
-
-#convert raw bam files to fastq
-#rule samtools_raw_fastq:
-#	input:
-#		"0_raw/{prefix}.subreads.bam",
-#	output:
-#		"2_fastq/all_{prefix}.fastq",
-#	log:
-#		"logs/samtools_raw_fastq/{prefix}_all.log",
-#	benchmark:
-#		"benchmarks/samtools_raw_fastq/{prefix}_all.tsv",
-#	threads:
-#		1
-#	conda:
-#		"envs/samtools.yaml",
-#	shell:
-#		"""
-#		(samtools fastq -0 {output} {input} -@ {threads}) 2> {log}
-#		"""
-#
-#
-##bbduk to extract chloroplast reads
-#rule bbduk:
-#	input:
-#		fa = "2_fastq/all_{prefix}.fastq",
-#		ref = "references/chloroplast.fasta",
-#	output:
-#		match = "0_chloroplast/{prefix}_{kmer}_{cov}.subreads.fasta",
-#	log:
-#		"logs/bbduk/{prefix}_{kmer}_{cov}.log",
-#	benchmark:
-#		"benchmarks/bbduk/{prefix}_{kmer}_{cov}.tsv",
-#	threads:
-#		10
-#	conda:
-#		"envs/bbmap.yaml",
-#	shell:
-#		"""
-#		(bbduk.sh in={input.fa} outm={output.match} ref={input.ref} threads={threads} k={wildcards.kmer} -Xmx1g mincovfraction={wildcards.cov}) 2> {log}
-#		"""
-#
-##Assemble chloroplast using flye.
-#rule flye_chloroplast:
-#	input:
-#		"0_chloroplast/{prefix}_{kmer}_{cov}.subreads.fasta",
-#	output:
-#		"3_flye/chloroplast/{prefix}/kmer_{kmer}_cov_{cov}/assembly.fasta",
-#	log:
-#		"logs/flye_chloroplast/{prefix}_{kmer}_{cov}.log",
-#	benchmark:
-#		"benchmarks/flye_chloroplast/{prefix}_{kmer}_{cov}.tsv",
-#	threads:
-#		5
-#	params:
-#		out = "3_flye/chloroplast/{prefix}/kmer_{kmer}_cov_{cov}",
-#		size = LENGTH_CHLOROPLAST,  
-#	conda:
-#		"envs/flye.yaml",
-#	shell:
-#		"""
-#		flye --pacbio-raw {input} --genome-size {params.size} --out-dir {params.out} --threads {threads}
-#		"""	
-#
-
-#
-##Compare chloroplast assemblies
-
-#
-
 
 #Create the file of file names .txt for falcon
 #rule make_fofn:
