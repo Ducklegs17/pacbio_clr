@@ -1,18 +1,22 @@
-# Instructions:
+#
+#Instructions:
 
 PREFIXES = ["m64015_90510_20042"]
 MITOCONDRIA_REF = "reference/mitochondria.fasta"
 CHLOROPLASTS_REF = "reference/chloroplast.fasta",
-READ_COVERAGE = ["25"]
+READ_COVERAGE = ["10","25","50","75","100"]
 MAX_THREADS = 32
 BBDUK_KMER_LENGTH = ["17"]
 BBDUK_MIN_COVERAGE = ["0.7"]
 LENGTH_CHLOROPLAST = ["134502"]
 LENGTH_MITOCHONDRIA = ["415805"]
-LENGTH_GENOME = ["5500000"]
-ASSEMBLY_TOOLS = ["flye","raven","smartdenovo","canu"]
+LENGTH_GENOME = ["387500000"]
+ASSEMBLY_TOOLS = ["flye","raven","wtdbg2","canu"]
 ASSEMBLY_TYPE = ["genome"]
-READ_SELECTION_METHOD = ["longest"]
+READ_SELECTION_METHOD = ["longest","random"]
+WTDBG2_PATH1 = "~/fast_dir/tools/wtdbg2/wtdbg2"
+WTDBG2_PATH2 = "~/fast_dir/tools/wtdbg2/wtpoa-cns"
+MUMMER_PATH = "/home/a1761942/fast_dir/tools/mummer-4.0.0beta2/"
 
 localrules: 
 	all,
@@ -27,7 +31,7 @@ rule all:
 		expand("1_{ASS_TYPE}_reads/sorted/{PREFIX}_{KMER}_{COV}_coveragetable.txt", ASS_TYPE = ASSEMBLY_TYPE, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE),
 		expand("2_{ASS_TYPE}_subset/{READ_SELECTION}/{PREFIX}_{KMER}_{COV}_{DEPTH}.fasta", ASS_TYPE = ASSEMBLY_TYPE, READ_SELECTION = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
 		expand("3_{ASS_TYPE}_assembly/{TOOL}/{PREFIX}/{READ_SELECTION}_{KMER}_{COV}_{DEPTH}/assembly.fasta", ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, READ_SELECTION = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
-		expand("mummer/{ASS_TYPE}/prefix_{PREFIX}_assemblytool_{TOOL}_readselect_{READ_SELECTION}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}.mums", PREFIX = PREFIXES, ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, READ_SELECTION = READ_SELECTION_METHOD, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE), 
+		expand("mummer/{ASS_TYPE}/prefix_{PREFIX}_assemblytool_{TOOL}_readselect_{READ_SELECTION}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}.delta", PREFIX = PREFIXES, ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, READ_SELECTION = READ_SELECTION_METHOD, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE), 
 		expand("quast/assemblytype_{ASS_TYPE}_assemblytool_{TOOL}_prefix_{PREFIX}_readselect_{READ_SELECTION}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/report.tsv", ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, PREFIX = PREFIXES, READ_SELECTION = READ_SELECTION_METHOD, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
 
 #Check read quality and length stats
@@ -279,27 +283,33 @@ rule seqtk_genome:
 
 rule flye_genome:
 	input:
-		"2_genome_subset/{read_select}/{prefix}_{kmer}_{cov}_{depth}.fasta",
+		"2_{ass_type}_subset/{read_select}/{prefix}_{kmer}_{cov}_{depth}.fasta",
 	output:
-		"3_genome_assembly/flye/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta"
+		"3_{ass_type}_assembly/flye/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta"
 	log:
-		"logs/flye/genome/{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
+		"logs/flye/{ass_type}/{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
 	benchmark:
-		"benchmarks/flyegenome/assemblytype_genome_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+		"benchmarks/flyegenome/assemblytype_{ass_type}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
 		MAX_THREADS
+	resources:
+		time = lambda wildcards, input: (2880 if wildcards.ass_type == "genome" else 10),
+		mem_mb = lambda wildcards, input: (96000 if wildcards.ass_type == "genome" else 5000),
+		cpu = lambda wildcards, input: (32 if wildcards.ass_type == "genome" else 5),
 	params:
-		out = "3_genome_assembly/flye/{prefix}/{read_select}_{kmer}_{cov}_{depth}",
+		out = "3_{ass_type}_assembly/flye/{prefix}/{read_select}_{kmer}_{cov}_{depth}",
 		size = LENGTH_GENOME,
 	conda:
 		"envs/flye.yaml",
+	wildcard_constraints:
+		ass_type = "genome",
 	shell:
 		"""
 		SIZE={params.size}
 		echo "Starting genome assembly ..."
 		FIRST="${{SIZE:0:1}}"
 		SECOND="${{SIZE:1:1}}"
-
+#		ASM="--asm-coverage 30"
 		if [ ${{#SIZE}} == "6" ]; then
 		        NUSIZE="0.${{FIRST}}m"             
 		elif [ ${{#SIZE}} == "7" ]; then
@@ -311,7 +321,7 @@ rule flye_genome:
 		elif ${{#SIZE}} == "10" ]; then
 			NUSIZE="${{FIRST}}${{SECOND}}g"
 		fi
-
+		echo "about to run flye"
 		(flye --pacbio-raw {input} --genome-size ${{NUSIZE}} --out-dir {params.out} --threads {threads}) 2> {log}
 		"""
 
@@ -332,6 +342,8 @@ rule flye:
 		mito = LENGTH_MITOCHONDRIA,
 	wildcard_constraints:
 		ass_type = "(mitochondria|chloroplast)",
+	resources:
+		time = lambda wildcards, input: (60 if wildcards.ass_type == 'mitochondria' else 10),
 	conda:
 		"envs/flye.yaml",
 	shell:
@@ -381,11 +393,61 @@ rule raven:
 		"benchmarks/raven/assemblytype_{ass_type}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
 		MAX_THREADS
+	resources: 
+		time = lambda wildcards, input: (2000 if wildcards.ass_type == "genome" else 10),
+		mem_mb = lambda wildcards, input: (96000 if wildcards.ass_type == "genome" else 5000),
+		cpu = lambda wildcards, input: (32 if wildcards.ass_type == "genome" else 5),
 	conda:
 		"envs/raven.yaml",
 	shell:
 		"""
 		raven -t {threads} --polishing 1 --graphical-fragment-assembly {output.gfa} {input} > {output.fasta}
+		"""
+
+rule wtdbg2:
+	input:
+		"2_{ass_type}_subset/{read_select}/{prefix}_{kmer}_{cov}_{depth}.fasta",
+	output:
+		"3_{ass_type}_assembly/wtdbg2/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
+	log:
+		"logs/wtdbg2/{ass_type}/{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
+	benchmark:
+		"benchmarks/wtdbg2/assemblytype_{ass_type}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+	threads:
+		MAX_THREADS
+	resources:
+		time = lambda wildcards, input: (2000 if wildcards.ass_type == "genome" else 10),
+		mem_mb = lambda wildcards, input: (96000 if wildcards.ass_type == "genome" else 5000),
+		cpu = lambda wildcards, input: (32 if wildcards.ass_type == "genome" else 5),	
+	shadow:	
+		"shallow"
+	params:
+		wtdbg2_1 = WTDBG2_PATH1,
+		wtdbg2_2 = WTDBG2_PATH2,
+		mito = LENGTH_MITOCHONDRIA,
+		chlor = LENGTH_CHLOROPLAST,
+		genome = LENGTH_GENOME,
+		prefix = "assembly",
+		location = "3_{ass_type}_assembly/wtdbg2/{prefix}/{read_select}_{kmer}_{cov}_{depth}/",
+	shell:
+		"""
+
+		if [ {wildcards.ass_type} == 'chloroplast' ]; then
+			SIZE={params.chlor}
+		fi		
+
+		if [ {wildcards.ass_type} == 'mitochondria' ]; then
+			SIZE={params.mito}
+		fi		
+
+		if [ {wildcards.ass_type} == 'genome' ]; then
+			SIZE={params.genome}
+		fi	
+	
+		{params.wtdbg2_1} -t {threads} -x sq -g ${{SIZE}} -L 5000 -i {input} -fo {params.prefix}
+		{params.wtdbg2_2} -t {threads} -i {params.prefix}.ctg.lay.gz -fo {params.prefix}.ctg.fa
+		mv {params.prefix}* {params.location}
+		mv {params.location}{params.prefix}.ctg.fa {params.location}{params.prefix}.fasta
 		"""
 
 #Assemble chloroplast using smartDenovo - no polishing step included
@@ -440,7 +502,9 @@ rule canu:
 	shell:
 		"""
 		cp canuFailure.sh {params.dir}
-
+		CORMHAP=""
+		ETIME="--time=00:10:00"
+		NUMREADCOR=""
 		if [ {wildcards.ass_type} == 'chloroplast' ]; then
 			SIZE={params.chlor}
 			JTIME="--time=00:40:00"
@@ -455,11 +519,12 @@ rule canu:
 		
 		if [ {wildcards.ass_type} == 'genome' ]; then
 			SIZE={params.genome}
-			JTIME="--time=04:00:00"
+			JTIME="--time=24:00:00"
+			ETIME="--time=12:00:00"
 			echo "Starting job {params.jobName}, genome assembly."
 		fi
 		
-		(canu -p {params.prefix} -d {params.dir} genomeSize=${{SIZE}} gridOptions=${{JTIME}} gridOptionsJobName={params.jobName} gridOptionsExecutive="--time=00:10:00" executiveMemory=1 -pacbio-raw {input} onSuccess=touch onFailure=./canuFailure.sh) 2> {log}
+		(canu -p {params.prefix} -d {params.dir} genomeSize=${{SIZE}} gridOptions=${{JTIME}} ${{CORMHAP}} ${{NUMREADCOR}} gridOptionsJobName={params.jobName} gridOptionsExecutive=${{ETIME}} executiveMemory=4 -pacbio-raw {input} stopOnLowCoverage=5 onSuccess=touch onFailure=./canuFailure.sh) 2> {log}
 
 		while :
 		do 
@@ -469,31 +534,13 @@ rule canu:
 				break
 			fi
 			if [ -f {params.dir}/failure ]; then
-				echo "You're not a failure but Canu job {params.jobName} is"
+				echo "Youre not a failure but Canu job {params.jobName} is"
 				break
 			fi
 			sleep 5m 
 		done
 		
 		"""
-
-#rule arrow_polish:
-#	input:
-#		"3_{ass_type}_assembly/canu/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
-#	output:
-#		"4_{ass_type}_polished/canu/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
-#	log:
-#		
-#	benchmark:
-#
-#	params:
-#		
-#	conda:
-#		"envs/pbgcpp.yaml",
-#	shell:
-#		"""
-#		quiver aligned_reads.bam 
-#		"""
 
 rule quast:
 	input:
@@ -505,11 +552,15 @@ rule quast:
 	benchmark:
 		"benchmarks/quast/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
-		1
+		MAX_THREADS
 	params:
 		out = "quast/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}",
 	conda:
 		"envs/quast.yaml",
+	resources:
+		time = lambda wildcards, input: (10 if wildcards.ass_type == "genome" else 1),
+		mem_mb = lambda wildcards, input: (3000 if wildcards.ass_type == "genome" else 3000),
+		cpu = lambda wildcards, input: (5 if wildcards.ass_type == "genome" else 1),
 	shell:
 		"""
 		quast {input} --threads {threads} -o {params.out}
@@ -519,45 +570,50 @@ rule mummer:
 	input:
 		chlor = "reference/chloroplast.fasta",
 		mito = "reference/mitochondria.fasta",
+		genome = "reference/genome.fasta",
 		query = "3_{ass_type}_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
 	output:
-		mums = "mummer/{ass_type}/prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.mums",
+		mums = "mummer/{ass_type}/prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.delta",
 		gp = "mummer/{ass_type}/prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.gp",
 	log:
 		"logs/mummer/{prefix}_{ass_type}/{read_select}_assemblytool_{tool}_ref_query_{kmer}_{cov}_{depth}.log",
 	benchmark:
 		"benchmarks/mummer/prefix_{prefix}_assemblytool_{tool}_assemblytype_{ass_type}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
-		1
-	shadow:
-		"shallow"
+		MAX_THREADS
+#	shadow:
+#		"shallow"
+	resources:
+		time = lambda wildcards, input: (180 if wildcards.ass_type == "genome" else 1),
+		mem_mb = lambda wildcards, input: (45000 if wildcards.ass_type == "genome" else 200),
+		cpu = lambda wildcards, input: (15 if wildcards.ass_type == "genome" else 1),
 	params:
 		pref = "prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}",
-	conda:
-		"envs/mummer.yaml",
+		mummer = MUMMER_PATH,
+#	conda:
+#		"envs/mummer.yaml",
 	shell:
 		"""
-
 		if [ {wildcards.ass_type} == "chloroplast" ]; then
-
-			mummer -mum -b -c {input.chlor} {input.query} > {params.pref}.mums
-			mummerplot --postscript --prefix={params.pref} {params.pref}.mums
-			nucmer -maxmatch -c 100 -p {params.pref} {input.chlor} {input.query}
-			show-coords -r -c -H -d -o -T -l {params.pref}.delta > {params.pref}.coords
-			show-snps -C -l -r -T -H {params.pref}.delta > {params.pref}.snps
-			show-tiling {params.pref}.delta > {params.pref}.tiling
-			mv {params.pref}.* mummer/{wildcards.ass_type}
+			REF={input.chlor}
 		fi
 
 		if [ {wildcards.ass_type} == "mitochondria" ]; then
-			mummer -mum -b -c {input.mito} {input.query} > {params.pref}.mums
-			mummerplot --postscript --prefix={params.pref} {params.pref}.mums
-			nucmer -maxmatch -c 100 -p {params.pref} {input.chlor} {input.query}
-			show-coords -r -c -H -d -o -T -l {params.pref}.delta > {params.pref}.coords
-			show-snps -C -l -r -T -H {params.pref}.delta > {params.pref}.snps
-			show-tiling {params.pref}.delta > {params.pref}.tiling
-			mv {params.pref}.* mummer/{wildcards.ass_type}
+			REF={input.mito}
 		fi
+
+		if [ {wildcards.ass_type} == "genome" ]; then
+			REF={input.genome}
+		fi
+
+#		(mummer -mum -b -c {input.genome} {input.query} > {params.pref}.mums) 2> {log}
+		({params.mummer}nucmer -t {threads} --prefix={params.pref} ${{REF}} {input.query}) 2> {log}
+		{params.mummer}show-coords -r -c -H -d -o -T -l {params.pref}.delta > {params.pref}.coords
+		{params.mummer}show-snps -C -l -r -T -H {params.pref}.delta > {params.pref}.snps
+		{params.mummer}show-tiling {params.pref}.delta > {params.pref}.tiling
+		{params.mummer}mummerplot --postscript --prefix={params.pref} {params.pref}.delta
+		mv {params.pref}.* mummer/{wildcards.ass_type}
+
 		"""
 
 rule run_mummer3:

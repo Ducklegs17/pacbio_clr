@@ -77,14 +77,14 @@ seqtk_mitochondria:
 
 #Create assemblies using flye
 flye_genome :
-        cpus-per-task : 32
-        mem           : "96000"
-        time          : "00-12:00:00"
+        cpus-per-task : "{resources.cpu}"
+        mem           : "{resources.mem_mb}"
+        time          : "00-00:{resources.time}:00"
 
 flye :
-        cpus-per-task : 20
-        mem           : "80000"
-        time          : "00-02:00:00"
+        cpus-per-task : 1
+        mem           : "1000"
+        time          : "00-00:{resources.time}:00"
 
 flye_mitochondria :
         cpus-per-task : 5
@@ -92,20 +92,24 @@ flye_mitochondria :
         time          : "00-00:15:00"
 
 quast :
-        cpus-per-task : 1
-        mem           : "200"
-        time          : "00-00:01:00"
-
+        cpus-per-task : "{resources.cpu}"
+        mem           : "{resources.mem_mb}"
+        time          : "00-00:{resources.time}:00"
 
 raven :
-        cpus-per-task : 32
-        mem           : "96000"
-        time          : "00-12:00:00"
+        cpus-per-task : "{resources.cpu}"
+        mem           : "{resources.mem_mb}"
+        time          : "00-00:{resources.time}:00"
+
+wtdbg2:
+        cpus-per-task : "{resources.cpu}"
+        mem           : "{resources.mem_mb}"
+        time          : "00-00:{resources.time}:00"
 
 smartdenovo :
         cpus-per-task : 32
         mem           : "96000"
-        time          : "00-12:00:00"
+        time          : "01-00:00:00"
 
 canu :
         cpus-per-task : 1
@@ -113,9 +117,9 @@ canu :
         time          : "00-05:00:00"
 
 mummer :
-        cpus-per-task : 1
-        mem           : "200"
-        time          : "00-00:01:00"
+        cpus-per-task : "{resources.cpu}"
+        mem           : "{resources.mem_mb}"
+        time          : "00-00:{resources.time}:00"
 
 
 #make_fofn :
