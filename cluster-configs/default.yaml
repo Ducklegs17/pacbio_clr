@@ -65,11 +65,6 @@ seqtk_genome:
         mem           : "2000"
         time          : "00-00:40:00"
 
-seqtk_chloroplast: 
-        cpus-per-task : 1
-        mem           : "100"
-        time          : "00-00:01:00"
-
 seqtk_mitochondria: 
         cpus-per-task : 1
         mem           : "100"
@@ -121,6 +116,20 @@ mummer :
         mem           : "{resources.mem_mb}"
         time          : "00-00:{resources.time}:00"
 
+gt_ltrharvest:
+        cpus-per-task : 5
+        mem           : "15000"
+        time          : "00-01:30:00"
+
+ltr_finder:
+        cpus-per-task : 5
+        mem           : "12000"
+        time          : "00-00:20:00"
+
+ltr_retriever:
+        cpus-per-task : 10
+        mem           : "20000"
+        time          : "00-03:00:00"
 
 #make_fofn :
 #        cpus-per-task : 1

@@ -4,7 +4,7 @@
 PREFIXES = ["m64015_90510_20042"]
 MITOCONDRIA_REF = "reference/mitochondria.fasta"
 CHLOROPLASTS_REF = "reference/chloroplast.fasta",
-READ_COVERAGE = ["10","25","50","75","100"]
+READ_COVERAGE = ["10","25","50"]
 MAX_THREADS = 32
 BBDUK_KMER_LENGTH = ["17"]
 BBDUK_MIN_COVERAGE = ["0.7"]
@@ -17,6 +17,8 @@ READ_SELECTION_METHOD = ["longest","random"]
 WTDBG2_PATH1 = "~/fast_dir/tools/wtdbg2/wtdbg2"
 WTDBG2_PATH2 = "~/fast_dir/tools/wtdbg2/wtpoa-cns"
 MUMMER_PATH = "/home/a1761942/fast_dir/tools/mummer-4.0.0beta2/"
+LTR_FINDER_PATH = "/fast/users/a1761942/tools/LTR_FINDER_parallel-master/LTR_FINDER_parallel"
+LTRFILES = ["rawLTR.scn","assembly.fasta.out.LAI"]
 
 localrules: 
 	all,
@@ -33,7 +35,10 @@ rule all:
 		expand("3_{ASS_TYPE}_assembly/{TOOL}/{PREFIX}/{READ_SELECTION}_{KMER}_{COV}_{DEPTH}/assembly.fasta", ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, READ_SELECTION = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
 		expand("mummer/{ASS_TYPE}/prefix_{PREFIX}_assemblytool_{TOOL}_readselect_{READ_SELECTION}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}.delta", PREFIX = PREFIXES, ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, READ_SELECTION = READ_SELECTION_METHOD, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE), 
 		expand("quast/assemblytype_{ASS_TYPE}_assemblytool_{TOOL}_prefix_{PREFIX}_readselect_{READ_SELECTION}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/report.tsv", ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, PREFIX = PREFIXES, READ_SELECTION = READ_SELECTION_METHOD, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
-
+		expand("ltr/harvest/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/assembly.fa.harvest.scn",TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
+		expand("ltr/finder/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/assembly.fasta.finder.combine.scn", TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
+		expand("ltr/retriever/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/{LTRFILE}", TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE, LTRFILE = LTRFILES),	
+	
 #Check read quality and length stats
 rule sequelTools:
 	input:
@@ -293,7 +298,7 @@ rule flye_genome:
 	threads:
 		MAX_THREADS
 	resources:
-		time = lambda wildcards, input: (2880 if wildcards.ass_type == "genome" else 10),
+		time = lambda wildcards, input: (600 if wildcards.ass_type == "genome" else 10),
 		mem_mb = lambda wildcards, input: (96000 if wildcards.ass_type == "genome" else 5000),
 		cpu = lambda wildcards, input: (32 if wildcards.ass_type == "genome" else 5),
 	params:
@@ -394,7 +399,7 @@ rule raven:
 	threads:
 		MAX_THREADS
 	resources: 
-		time = lambda wildcards, input: (2000 if wildcards.ass_type == "genome" else 10),
+		time = lambda wildcards, input: (240 if wildcards.ass_type == "genome" else 10),
 		mem_mb = lambda wildcards, input: (96000 if wildcards.ass_type == "genome" else 5000),
 		cpu = lambda wildcards, input: (32 if wildcards.ass_type == "genome" else 5),
 	conda:
@@ -416,7 +421,7 @@ rule wtdbg2:
 	threads:
 		MAX_THREADS
 	resources:
-		time = lambda wildcards, input: (2000 if wildcards.ass_type == "genome" else 10),
+		time = lambda wildcards, input: (300 if wildcards.ass_type == "genome" else 10),
 		mem_mb = lambda wildcards, input: (96000 if wildcards.ass_type == "genome" else 5000),
 		cpu = lambda wildcards, input: (32 if wildcards.ass_type == "genome" else 5),	
 	shadow:	
@@ -503,29 +508,30 @@ rule canu:
 		"""
 		cp canuFailure.sh {params.dir}
 		CORMHAP=""
+		REPEAT=""
 		ETIME="--time=00:10:00"
 		NUMREADCOR=""
 		if [ {wildcards.ass_type} == 'chloroplast' ]; then
 			SIZE={params.chlor}
 			JTIME="--time=00:40:00"
-			echo "Starting job {params.jobName}, chloroplast assembly."
 		fi
 
 		if [ {wildcards.ass_type} == 'mitochondria' ]; then
 			SIZE={params.mito}
 			JTIME="--time=00:40:00"
-			echo "Starting job {params.jobName}, mitochondria assembly."
 		fi
 		
 		if [ {wildcards.ass_type} == 'genome' ]; then
 			SIZE={params.genome}
-			JTIME="--time=24:00:00"
-			ETIME="--time=12:00:00"
+			JTIME="--time=36:00:00"
+			ETIME="--time=00:20:00"
 			echo "Starting job {params.jobName}, genome assembly."
+			(canu -p {params.prefix} -d {params.dir} genomeSize=${{SIZE}} gridOptions=${{JTIME}} gridOptionsJobName={params.jobName} gridOptionsExecutive=${{ETIME}} executiveMemory=4 corMhapFilterThreshold=0.0000000002 corMhapOptions=\x22--threshold 0.80 --num-hashes 512 --num-min-matches 3 --ordered-sketch-size 1000 --ordered-kmer-size 14 --min-olap-length 2000 --repeat-idf-scale 50\x22 mhapMemory=60g mhapBlockSize=500 ovlMerThreshold=500 -pacbio-raw {input} stopOnLowCoverage=3 onSuccess=touch onFailure=./canuFailure.sh) 2> {log}
+		else
+			echo "Starting job {params.jobName}, {wildcards.ass_type} assembly."
+			(canu -p {params.prefix} -d {params.dir} genomeSize=${{SIZE}} gridOptions=${{JTIME}} gridOptionsJobName={params.jobName} gridOptionsExecutive=${{ETIME}} executiveMemory=4 -pacbio-raw {input} stopOnLowCoverage=3 onSuccess=touch onFailure=./canuFailure.sh) 2> {log}
 		fi
 		
-		(canu -p {params.prefix} -d {params.dir} genomeSize=${{SIZE}} gridOptions=${{JTIME}} ${{CORMHAP}} ${{NUMREADCOR}} gridOptionsJobName={params.jobName} gridOptionsExecutive=${{ETIME}} executiveMemory=4 -pacbio-raw {input} stopOnLowCoverage=5 onSuccess=touch onFailure=./canuFailure.sh) 2> {log}
-
 		while :
 		do 
 			if [ -f {params.dir}/{params.prefix} ]; then
@@ -558,9 +564,9 @@ rule quast:
 	conda:
 		"envs/quast.yaml",
 	resources:
-		time = lambda wildcards, input: (10 if wildcards.ass_type == "genome" else 1),
+		time = lambda wildcards, input: (15 if wildcards.ass_type == "genome" else 1),
 		mem_mb = lambda wildcards, input: (3000 if wildcards.ass_type == "genome" else 3000),
-		cpu = lambda wildcards, input: (5 if wildcards.ass_type == "genome" else 1),
+		cpu = lambda wildcards, input: (2 if wildcards.ass_type == "genome" else 1),
 	shell:
 		"""
 		quast {input} --threads {threads} -o {params.out}
@@ -581,12 +587,12 @@ rule mummer:
 		"benchmarks/mummer/prefix_{prefix}_assemblytool_{tool}_assemblytype_{ass_type}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
 		MAX_THREADS
-#	shadow:
-#		"shallow"
+	shadow:
+		"shallow"
 	resources:
-		time = lambda wildcards, input: (180 if wildcards.ass_type == "genome" else 1),
-		mem_mb = lambda wildcards, input: (45000 if wildcards.ass_type == "genome" else 200),
-		cpu = lambda wildcards, input: (15 if wildcards.ass_type == "genome" else 1),
+		time = lambda wildcards, input: (40 if wildcards.ass_type == "genome" else 1),
+		mem_mb = lambda wildcards, input: (30000 if wildcards.ass_type == "genome" else 200),
+		cpu = lambda wildcards, input: (10 if wildcards.ass_type == "genome" else 1),
 	params:
 		pref = "prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}",
 		mummer = MUMMER_PATH,
@@ -606,7 +612,6 @@ rule mummer:
 			REF={input.genome}
 		fi
 
-#		(mummer -mum -b -c {input.genome} {input.query} > {params.pref}.mums) 2> {log}
 		({params.mummer}nucmer -t {threads} --prefix={params.pref} ${{REF}} {input.query}) 2> {log}
 		{params.mummer}show-coords -r -c -H -d -o -T -l {params.pref}.delta > {params.pref}.coords
 		{params.mummer}show-snps -C -l -r -T -H {params.pref}.delta > {params.pref}.snps
@@ -615,6 +620,86 @@ rule mummer:
 		mv {params.pref}.* mummer/{wildcards.ass_type}
 
 		"""
+
+rule gt_ltrharvest:
+	input:
+		"3_genome_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
+	output:
+		"ltr/harvest/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fa.harvest.scn",
+	log:
+		"logs/gt_ltrharvest/genome/{tool}_{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
+	benchmark:
+		"benchmarks/gtltrharvest/assemblytype_genome_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+	threads:
+		10
+	shadow:
+		"shallow",
+	conda:
+		"envs/genometools.yaml",
+	params:
+		dir = "ltr/harvest/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/",
+	shell:
+		"""
+		gt suffixerator -db {input} -indexname suffixer.fa -tis -suf -lcp -des -ssp -sds -dna
+		gt ltrharvest -index suffixer.fa -minlenltr 100 -maxlenltr 7000 -mintsd 4 -maxtsd 6 -motif TGCA -motifmis 1 -similar 85 -vic 10 -seed 20 -seqids yes > out.scn
+		mv  out.scn {output}
+		mv suffixer* {params.dir}
+		"""
+
+rule ltr_finder:
+	input:
+		"3_genome_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
+	output:
+		"ltr/finder/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fasta.finder.combine.scn",
+	log:
+		"logs/ltr_finder/genome/{tool}_{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
+	benchmark:
+		"benchmarks/ltrfinder/assemblytype_genome_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+	threads:
+		10
+	shadow:
+		"shallow",
+	params:
+		dir = "ltr/finder/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/",
+		finder = LTR_FINDER_PATH,
+	shell:
+		"""
+		perl {params.finder} -seq {input} -threads {threads} -harvest_out -size 1000000 -time 300
+		mv assembly* {params.dir}
+		"""
+
+rule ltr_retriever:
+	input:
+		genome = "3_genome_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
+		finder = "ltr/finder/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fasta.finder.combine.scn",
+		harvest = "ltr/harvest/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fa.harvest.scn",
+	output:
+		scn = "ltr/retriever/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/rawLTR.scn",
+		lai =  "ltr/retriever/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fasta.out.LAI",
+		dummy =  "ltr/retriever/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/complete",
+	log:
+		"logs/ltr_retriever/genome/{tool}_{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
+	benchmark:
+		"benchmarks/ltrretriever/assemblytype_genome_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+	threads:
+		10
+	shadow:
+		"shallow",
+	conda:
+		"envs/ltr.yaml",
+	params:
+		dir = "ltr/retriever/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/",
+	shell:
+		"""
+		cat {input.finder} {input.harvest} > {output.scn}
+		cp {input.genome} {params.dir}
+		LTR_retriever -genome {params.dir}assembly.fasta -inharvest {output.scn} -threads {threads}
+		mv assembly.fasta.out.* {params.dir}
+		rm assembly.fasta.out
+		rm {params.dir}assembly.fasta
+		touch {output.dummy}
+		"""
+
 
 rule run_mummer3:
 	input:
