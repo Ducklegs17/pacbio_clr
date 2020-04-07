@@ -623,21 +623,23 @@ rule mummer:
 
 rule gt_ltrharvest:
 	input:
-		"3_genome_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
+		"3_{ass_type}_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
 	output:
-		"ltr/harvest/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fa.harvest.scn",
+		"ltr/harvest/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fa.harvest.scn",
 	log:
-		"logs/gt_ltrharvest/genome/{tool}_{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
+		"logs/gt_ltrharvest/{ass_type}/{tool}_{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
 	benchmark:
-		"benchmarks/gtltrharvest/assemblytype_genome_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+		"benchmarks/gtltrharvest/assemblytype_{ass_type}_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
 		10
 	shadow:
 		"shallow",
+	wildcard_constraints:
+		ass_type = "genome",
 	conda:
 		"envs/genometools.yaml",
 	params:
-		dir = "ltr/harvest/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/",
+		dir = "ltr/harvest/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/",
 	shell:
 		"""
 		gt suffixerator -db {input} -indexname suffixer.fa -tis -suf -lcp -des -ssp -sds -dna
@@ -648,19 +650,21 @@ rule gt_ltrharvest:
 
 rule ltr_finder:
 	input:
-		"3_genome_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
+		"3_{ass_type}_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
 	output:
-		"ltr/finder/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fasta.finder.combine.scn",
+		"ltr/finder/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fasta.finder.combine.scn",
 	log:
-		"logs/ltr_finder/genome/{tool}_{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
+		"logs/ltr_finder/{ass_type}/{tool}_{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
 	benchmark:
-		"benchmarks/ltrfinder/assemblytype_genome_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+		"benchmarks/ltrfinder/assemblytype_{ass_type}_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
 		10
 	shadow:
 		"shallow",
+	wildcard_constraints:
+		ass_type = "genome",
 	params:
-		dir = "ltr/finder/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/",
+		dir = "ltr/finder/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/",
 		finder = LTR_FINDER_PATH,
 	shell:
 		"""
@@ -670,25 +674,27 @@ rule ltr_finder:
 
 rule ltr_retriever:
 	input:
-		genome = "3_genome_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
-		finder = "ltr/finder/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fasta.finder.combine.scn",
-		harvest = "ltr/harvest/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fa.harvest.scn",
+		genome = "3_{ass_type}_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
+		finder = "ltr/finder/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fasta.finder.combine.scn",
+		harvest = "ltr/harvest/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fa.harvest.scn",
 	output:
-		scn = "ltr/retriever/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/rawLTR.scn",
-		lai =  "ltr/retriever/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fasta.out.LAI",
-		dummy =  "ltr/retriever/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/complete",
+		scn = "ltr/retriever/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/rawLTR.scn",
+		lai =  "ltr/retriever/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/assembly.fasta.out.LAI",
+		dummy =  "ltr/retriever/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/complete",
 	log:
-		"logs/ltr_retriever/genome/{tool}_{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
+		"logs/ltr_retriever/{ass_type}/{tool}_{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
 	benchmark:
-		"benchmarks/ltrretriever/assemblytype_genome_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+		"benchmarks/ltrretriever/assemblytype_{ass_type}_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
 		10
 	shadow:
 		"shallow",
+	wildcard_constraints:
+		ass_type = "genome",
 	conda:
 		"envs/ltr.yaml",
 	params:
-		dir = "ltr/retriever/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/",
+		dir = "ltr/retriever/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/",
 	shell:
 		"""
 		cat {input.finder} {input.harvest} > {output.scn}
