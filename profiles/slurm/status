@@ -1,20 +1,18 @@
-#!/bin/bash
-
-JOB_ID="$1"
+B_ID="$1"
 
 # Ensure provided JOB_ID is a number
 re='^[0-9]+$'
 if ! [[ ${JOB_ID} =~ $re ]] ; then
-   >&2 echo "ERROR: JOB_ID Not a number: ${JOB_ID}"
-   exit 1
+	>&2 echo "ERROR: JOB_ID Not a number: ${JOB_ID}"
+	exit 1
 fi
 
 # Generic retry function with up to 5 retry attempts
 function retry {
-  local max_attempts=5
-  local delay_sec=5
+	local max_attempts=5
+	local delay_sec=5
 
-  local attempt=1
+ local attempt=1
   while true; do
     "$@" && break || {
       if [[ ${attempt} -lt ${max_attempts} ]]; then
@@ -30,7 +28,7 @@ function retry {
 }
 
 set -o pipefail
-STATE=$(retry sacct --format state --parsable2 --jobs "${JOB_ID}" --noheader | fgrep -v -e '.batch')
+STATE=$(retry sacct --format state --parsable2 --jobs "${JOB_ID}" --noheader | fgrep -v -e '.batch' || squeue --format "%T" --jobs "${JOB_ID}" --noheader)
 
 case "${STATE}" in
 	*RUNNING*|*PENDING*|*SUSPENDED*|*COMPLETING*|*CONFIGURING* )
@@ -45,6 +43,11 @@ case "${STATE}" in
 		echo failed
 		exit 0
 		;;
+	"" )
+		# Slurm knows nothing about the provided Job_ID
+		echo failed
+		exit 0
+		;;
 	* )
 		# Assume anything else returned by Slurm is indicative of the job still running
 		echo running
@@ -53,3 +56,4 @@ case "${STATE}" in
 esac
 
 exit 1
+
