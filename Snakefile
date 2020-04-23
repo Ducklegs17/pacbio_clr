@@ -4,14 +4,14 @@
 PREFIXES = ["m64015_90510_20042"]
 MITOCONDRIA_REF = "reference/mitochondria.fasta"
 CHLOROPLASTS_REF = "reference/chloroplast.fasta",
-READ_COVERAGE = ["10","25","50"]
+READ_COVERAGE = ["100"]
 MAX_THREADS = 32
 BBDUK_KMER_LENGTH = ["17"]
 BBDUK_MIN_COVERAGE = ["0.7"]
 LENGTH_CHLOROPLAST = ["134502"]
 LENGTH_MITOCHONDRIA = ["415805"]
 LENGTH_GENOME = ["387500000"]
-ASSEMBLY_TOOLS = ["flye","raven","wtdbg2","canu"]
+ASSEMBLY_TOOLS = ["raven","wtdbg2","canu","flye"]
 ASSEMBLY_TYPE = ["genome"]
 READ_SELECTION_METHOD = ["longest","random"]
 WTDBG2_PATH1 = "~/fast_dir/tools/wtdbg2/wtdbg2"
@@ -19,11 +19,13 @@ WTDBG2_PATH2 = "~/fast_dir/tools/wtdbg2/wtpoa-cns"
 MUMMER_PATH = "/home/a1761942/fast_dir/tools/mummer-4.0.0beta2/"
 LTR_FINDER_PATH = "/fast/users/a1761942/tools/LTR_FINDER_parallel-master/LTR_FINDER_parallel"
 LTRFILES = ["rawLTR.scn","assembly.fasta.out.LAI"]
+CANU_BENCHMARK_FILES = ["job_finish_state","submit_time","start_time","end_time","walltime_reserved","walltime_elapsed","max_memory","max_disk_write","max_disk_read","num_cores"]
 
 localrules: 
 	all,
 	canu,
 	generate_coverage_list,
+	benchcanu,
 
 rule all:
 	input:
@@ -38,7 +40,8 @@ rule all:
 		expand("ltr/harvest/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/assembly.fa.harvest.scn",TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
 		expand("ltr/finder/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/assembly.fasta.finder.combine.scn", TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
 		expand("ltr/retriever/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/{LTRFILE}", TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE, LTRFILE = LTRFILES),	
-	
+		expand("benchmarkcanu/assemblytype_{ASS_TYPE}_assemblytool_{TOOL}_prefix_{PREFIX}_readselect_{READ_SELECT}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/{CANU_BENCHMARKS}.txt", ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE, CANU_BENCHMARKS = CANU_BENCHMARK_FILES),
+
 #Check read quality and length stats
 rule sequelTools:
 	input:
@@ -298,8 +301,8 @@ rule flye_genome:
 	threads:
 		MAX_THREADS
 	resources:
-		time = lambda wildcards, input: (600 if wildcards.ass_type == "genome" else 10),
-		mem_mb = lambda wildcards, input: (96000 if wildcards.ass_type == "genome" else 5000),
+		time = lambda wildcards, input: (2160 if wildcards.ass_type == "genome" else 10),
+		mem_mb = lambda wildcards, input: (250000 if wildcards.ass_type == "genome" else 5000),
 		cpu = lambda wildcards, input: (32 if wildcards.ass_type == "genome" else 5),
 	params:
 		out = "3_{ass_type}_assembly/flye/{prefix}/{read_select}_{kmer}_{cov}_{depth}",
@@ -327,7 +330,7 @@ rule flye_genome:
 			NUSIZE="${{FIRST}}${{SECOND}}g"
 		fi
 		echo "about to run flye"
-		(flye --pacbio-raw {input} --genome-size ${{NUSIZE}} --out-dir {params.out} --threads {threads}) 2> {log}
+		(flye --pacbio-raw {input} --genome-size ${{NUSIZE}} --out-dir {params.out} --threads {threads} --asm-coverage 40) 2> {log}
 		"""
 
 rule flye:
@@ -523,10 +526,10 @@ rule canu:
 		
 		if [ {wildcards.ass_type} == 'genome' ]; then
 			SIZE={params.genome}
-			JTIME="--time=36:00:00"
-			ETIME="--time=00:20:00"
+			JTIME="--time=12:00:00"
+			ETIME="--time=00:10:00"
 			echo "Starting job {params.jobName}, genome assembly."
-			(canu -p {params.prefix} -d {params.dir} genomeSize=${{SIZE}} gridOptions=${{JTIME}} gridOptionsJobName={params.jobName} gridOptionsExecutive=${{ETIME}} executiveMemory=4 corMhapFilterThreshold=0.0000000002 corMhapOptions=\x22--threshold 0.80 --num-hashes 512 --num-min-matches 3 --ordered-sketch-size 1000 --ordered-kmer-size 14 --min-olap-length 2000 --repeat-idf-scale 50\x22 mhapMemory=60g mhapBlockSize=500 ovlMerThreshold=500 -pacbio-raw {input} stopOnLowCoverage=3 onSuccess=touch onFailure=./canuFailure.sh) 2> {log}
+			(canu -p {params.prefix} -d {params.dir} genomeSize=${{SIZE}} gridOptions=${{JTIME}} gridOptionsJobName={params.jobName} gridOptionsExecutive=${{ETIME}} executiveMemory=4 corMhapFilterThreshold=0.0000000002 gridOptionsCORMHAP="--time=72:00:00" corMhapOptions="--threshold 0.80 --num-hashes 512 --num-min-matches 3 --ordered-sketch-size 1000 --ordered-kmer-size 14 --min-olap-length 2000 --repeat-idf-scale 50" mhapMemory=60g mhapBlockSize=500 ovlMerThreshold=500 -pacbio-raw {input} stopOnLowCoverage=3 onSuccess=touch onFailure=./canuFailure.sh) 2> {log}
 		else
 			echo "Starting job {params.jobName}, {wildcards.ass_type} assembly."
 			(canu -p {params.prefix} -d {params.dir} genomeSize=${{SIZE}} gridOptions=${{JTIME}} gridOptionsJobName={params.jobName} gridOptionsExecutive=${{ETIME}} executiveMemory=4 -pacbio-raw {input} stopOnLowCoverage=3 onSuccess=touch onFailure=./canuFailure.sh) 2> {log}
@@ -546,6 +549,43 @@ rule canu:
 			sleep 5m 
 		done
 		
+		"""
+
+rule benchcanu:
+	input:
+		"3_{ass_type}_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta"
+	output:
+		"benchcanu/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}/job_finish_state.txt",
+		"benchcanu/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}/submit_time.txt",
+		"benchcanu/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}/start_time.txt",
+		"benchcanu/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}/end_time.txt",
+		"benchcanu/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}/walltime_reserved.txt",
+		"benchcanu/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}/walltime_elapsed.txt",
+		"benchcanu/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}/max_memory.txt",
+		"benchcanu/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}/max_disk_write.txt",
+		"benchcanu/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}/max_disk_read.txt",
+		"benchcanu/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}/num_cores.txt",
+	log:
+		"logs/benchcanu/{ass_type}/{tool}/{prefix}_{read_select}_{kmer}_{cov}_{depth}.log",
+	benchmark:
+		"benchmarks/benchcanu/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+	threads:
+		1
+	params:
+		dir = "3_{ass_type}_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/",
+		dir2 = "benchcanu/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}/",
+	shell:
+		"""
+		grep -r 'State               :' {params.dir} > {params.dir2}job_finish_state.txt
+		grep -r 'Submit              : 2020' {params.dir} > {params.dir2}submit_time.txt
+		grep -r 'Start               : 2020' {params.dir} > {params.dir2}start_time.txt
+		grep -r 'End                 : 2020' {params.dir} > {params.dir2}end_time.txt
+		grep -r 'Walltime reserved   :' {params.dir} > {params.dir2}walltime_reserved.txt
+		grep -r 'Walltime elapsed (%):' {params.dir} > {params.dir2}walltime_elapsed.txt
+		grep -r '% Mem used (Max)    :' {params.dir} > {params.dir2}max_memory.txt
+		grep -r 'Max Disk Write      :' {params.dir} > {params.dir2}max_disk_write.txt
+		grep -r 'Max Disk Read       :' {params.dir} > {params.dir2}max_disk_read.txt
+		grep -r 'Cores               :' {params.dir} > {params.dir2}num_cores.txt
 		"""
 
 rule quast:

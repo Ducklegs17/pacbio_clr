@@ -129,7 +129,7 @@ ltr_finder:
 ltr_retriever:
         cpus-per-task : 10
         mem           : "20000"
-        time          : "00-03:00:00"
+        time          : "00-03:30:00"
 
 #make_fofn :
 #        cpus-per-task : 1
