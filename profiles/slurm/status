@@ -1,4 +1,6 @@
-B_ID="$1"
+#!/bin/bash
+
+JOB_ID="$1"
 
 # Ensure provided JOB_ID is a number
 re='^[0-9]+$'

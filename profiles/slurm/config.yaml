@@ -16,4 +16,4 @@ jobs:
   100
 cluster-config:
  - "cluster-configs/default.yaml"
- - "cluster-configs/phoenix.yaml"
+ - "cluster-configs/ronin.yaml"
