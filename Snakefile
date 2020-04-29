@@ -1,11 +1,11 @@
-#
+#!/bin/bash
 #Instructions:
 
 PREFIXES = ["m64015_90510_20042"]
 MITOCONDRIA_REF = "reference/mitochondria.fasta"
 CHLOROPLASTS_REF = "reference/chloroplast.fasta",
 READ_COVERAGE = ["100"]
-MAX_THREADS = 32
+MAX_THREADS = 48
 BBDUK_KMER_LENGTH = ["17"]
 BBDUK_MIN_COVERAGE = ["0.7"]
 LENGTH_CHLOROPLAST = ["134502"]
@@ -14,10 +14,10 @@ LENGTH_GENOME = ["387500000"]
 ASSEMBLY_TOOLS = ["raven","wtdbg2","canu","flye"]
 ASSEMBLY_TYPE = ["genome"]
 READ_SELECTION_METHOD = ["longest","random"]
-WTDBG2_PATH1 = "~/fast_dir/tools/wtdbg2/wtdbg2"
-WTDBG2_PATH2 = "~/fast_dir/tools/wtdbg2/wtpoa-cns"
-MUMMER_PATH = "/home/a1761942/fast_dir/tools/mummer-4.0.0beta2/"
-LTR_FINDER_PATH = "/fast/users/a1761942/tools/LTR_FINDER_parallel-master/LTR_FINDER_parallel"
+WTDBG2_PATH1 = "/shared/cmatthews/tools/wtdbg2/wtdbg2"
+WTDBG2_PATH2 = "/shared/cmatthews/tools/wtdbg2/wtpoa-cns"
+MUMMER_PATH = "/shared/cmatthews/tools/mummer-4.0.0beta2/"
+LTR_FINDER_PATH = "/shared/cmatthews/tools/LTR_FINDER_parallel-master/LTR_FINDER_parallel"
 LTRFILES = ["rawLTR.scn","assembly.fasta.out.LAI"]
 CANU_BENCHMARK_FILES = ["job_finish_state","submit_time","start_time","end_time","walltime_reserved","walltime_elapsed","max_memory","max_disk_write","max_disk_read","num_cores"]
 
@@ -26,6 +26,7 @@ localrules:
 	canu,
 	generate_coverage_list,
 	benchcanu,
+	select_longest,
 
 rule all:
 	input:
@@ -43,127 +44,127 @@ rule all:
 		expand("benchmarkcanu/assemblytype_{ASS_TYPE}_assemblytool_{TOOL}_prefix_{PREFIX}_readselect_{READ_SELECT}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/{CANU_BENCHMARKS}.txt", ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE, CANU_BENCHMARKS = CANU_BENCHMARK_FILES),
 
 #Check read quality and length stats
-rule sequelTools:
-	input:
-		"0_raw/bamList.txt",
-	output:
-		"SequelToolsResults/summaryTable.txt",
-	log:
-		"logs/sequelTools/sequelTools.log",
-	benchmark:
-		"benchmarks/sequelTools.tsv",
-	threads:
-		1
-	conda:
-		"envs/sequeltools.yaml",
-	shell:
-		"""
-		(bash SequelTools.sh -t Q -v -u {input}) 2> {log} 
-		"""
-
-#subset bam into mitochondria and chloroplast
-rule bbduk:
-	input:
-		seq = "0_raw/{prefix}.subreads.bam",
-		ass = "reference/{ass_type}.fasta",
-	output:
-		out = "1_{ass_type}_reads/{prefix}_{kmer}_{cov}.fasta",
-	log:
-		"logs/bbduk/{ass_type}/{prefix}_{kmer}_{cov}.log",
-	benchmark:
-		"benchmarks/bbduk/assemblytype_{ass_type}_prefix_{prefix}_kmer_{kmer}_cov_{cov}.tsv",
-	wildcard_constraints:
-		ass_type = "(mitochondria|chloroplast)",
-	threads:
-		20
-	conda:
-		"envs/bbmap.yaml",
-	shell:
-		"""
-		echo "Extracting {wildcards.ass_type} reads with bbduk"
-		bbduk.sh in={input.seq} outm={output.out} ref={input.ass} threads={threads} k={wildcards.kmer} -Xmx1g mincovfraction={wildcards.cov}
-		"""
-
-rule bbduk_genome:
-	input:
-		seq = "0_raw/{prefix}.subreads.bam",
-		ref1 = "reference/chloroplast.fasta", 
-		ref2 = "reference/mitochondria.fasta",
-	output:
-		"1_genome_reads/{prefix}_{kmer}_{cov}.fasta",
-	log:
-		"logs/bbdukgenome/assembly_type_genome_prefix_{prefix}_kmer_{kmer}_cov_{cov}.log",
-	benchmark:
-		"benchmarks/bbdukgenome/assemblytype_genome_prefix_{prefix}_kmer_{kmer}_cov_{cov}.tsv",
-	threads:
-		MAX_THREADS
-	conda:
-		"envs/bbmap.yaml",
-	shell:
-		"""
-		bbduk.sh in={input.seq} out={output} ref={input.ref1},{input.ref2} threads={threads} k={wildcards.kmer} -Xmx2g mincovfraction={wildcards.cov}
-		"""
-
-rule bbmap_sort:
-	input:
-		"1_{ass_type}_reads/{prefix}_{kmer}_{cov}.fasta",
-	output:
-		fasta = "1_{ass_type}_reads/sorted/{prefix}_{kmer}_{cov}.fasta",
-	log:
-		"logs/bbmap_sort/{ass_type}_{prefix}_{kmer}_{cov}.log",
-	benchmark:
-		"benchmarks/bbmapsort/assemblytype_{ass_type}_prefix_{prefix}_kmer_{kmer}_cov_{cov}.tsv",
-	threads:
-		1
-	wildcard_constraints:
-		ass_type = "(mitochondria|chloroplast|genome)",
-#	shadow:
-#		"shallow"
-	conda:
-		"envs/bbmap.yaml",
-	shell:
-		"""
-#increased Xmx option from 1g to 10g for sorting genome. also increased time from 1 min to 1 hr.
-		(sortbyname.sh in={input} out={output.fasta} name=f length=t ascending=f -Xmx60g) 2> {log}
-		"""
-
-rule generate_coverage_list:
-	input:
-		"1_{ass_type}_reads/sorted/{prefix}_{kmer}_{cov}.fasta",	
-	output:
-		"1_{ass_type}_reads/sorted/{prefix}_{kmer}_{cov}_coveragetable.txt",
-	log:
-		"logs/generate_coverage_list/assemblytype_{ass_type}_prefix_{prefix}_kmer_{kmer}_cov_{cov}.log",	
-	benchmark:
-		"benchmarks/generatecoveragelist/assemblytype_{ass_type}_prefix_{prefix}_kmer_{kmer}_cov_{cov}.tsv",
-	threads:
-		1
-	params:
-		length_mito = LENGTH_MITOCHONDRIA,
-		length_chloro = LENGTH_CHLOROPLAST,
-		length_genome = LENGTH_GENOME,
-	shell:
-		"""  
-		if [ {wildcards.ass_type} == "chloroplast" ]; then
-			LEN={params.length_chloro}
-		elif [ {wildcards.ass_type} == "mitochondria" ]; then
-			LEN={params.length_mito}
-		elif [ {wildcards.ass_type} == "genome" ]; then
-			LEN={params.length_genome}
-		fi	
-		touch length.tmp && rm length.tmp
-		x=0
-		awk '/^>/{{if (l!="") print l; l=0; next}}{{l+=length($0)}}' {input} >> length.tmp
-		
-		while IFS= read -r line
-		do
-			x=$(( ${{x}} + ${{line}} ))
-			pr=$(( ${{x}} / ${{LEN}} ))
-			echo "${{pr}}" >> {output}
-		done < "length.tmp"
-
-		rm length.tmp
-		"""
+#rule sequelTools:
+#	input:
+#		"0_raw/bamList.txt",
+#	output:
+#		"SequelToolsResults/summaryTable.txt",
+#	log:
+#		"logs/sequelTools/sequelTools.log",
+#	benchmark:
+#		"benchmarks/sequelTools.tsv",
+#	threads:
+#		1
+#	conda:
+#		"envs/sequeltools.yaml",
+#	shell:
+#		"""
+#		(bash SequelTools.sh -t Q -v -u {input}) 2> {log} 
+#		"""
+#
+##subset bam into mitochondria and chloroplast
+#rule bbduk:
+#	input:
+#		seq = "0_raw/{prefix}.subreads.bam",
+#		ass = "reference/{ass_type}.fasta",
+#	output:
+#		out = "1_{ass_type}_reads/{prefix}_{kmer}_{cov}.fasta",
+#	log:
+#		"logs/bbduk/{ass_type}/{prefix}_{kmer}_{cov}.log",
+#	benchmark:
+#		"benchmarks/bbduk/assemblytype_{ass_type}_prefix_{prefix}_kmer_{kmer}_cov_{cov}.tsv",
+#	wildcard_constraints:
+#		ass_type = "(mitochondria|chloroplast)",
+#	threads:
+#		20
+#	conda:
+#		"envs/bbmap.yaml",
+#	shell:
+#		"""
+#		echo "Extracting {wildcards.ass_type} reads with bbduk"
+#		bbduk.sh in={input.seq} outm={output.out} ref={input.ass} threads={threads} k={wildcards.kmer} -Xmx1g mincovfraction={wildcards.cov}
+#		"""
+#
+#rule bbduk_genome:
+#	input:
+#		seq = "0_raw/{prefix}.subreads.bam",
+#		ref1 = "reference/chloroplast.fasta", 
+#		ref2 = "reference/mitochondria.fasta",
+#	output:
+#		"1_genome_reads/{prefix}_{kmer}_{cov}.fasta",
+#	log:
+#		"logs/bbdukgenome/assembly_type_genome_prefix_{prefix}_kmer_{kmer}_cov_{cov}.log",
+#	benchmark:
+#		"benchmarks/bbdukgenome/assemblytype_genome_prefix_{prefix}_kmer_{kmer}_cov_{cov}.tsv",
+#	threads:
+#		MAX_THREADS
+#	conda:
+#		"envs/bbmap.yaml",
+#	shell:
+#		"""
+#		bbduk.sh in={input.seq} out={output} ref={input.ref1},{input.ref2} threads={threads} k={wildcards.kmer} -Xmx2g mincovfraction={wildcards.cov}
+#		"""
+#
+#rule bbmap_sort:
+#	input:
+#		"1_{ass_type}_reads/{prefix}_{kmer}_{cov}.fasta",
+#	output:
+#		fasta = "1_{ass_type}_reads/sorted/{prefix}_{kmer}_{cov}.fasta",
+#	log:
+#		"logs/bbmap_sort/{ass_type}_{prefix}_{kmer}_{cov}.log",
+#	benchmark:
+#		"benchmarks/bbmapsort/assemblytype_{ass_type}_prefix_{prefix}_kmer_{kmer}_cov_{cov}.tsv",
+#	threads:
+#		1
+#	wildcard_constraints:
+#		ass_type = "(mitochondria|chloroplast|genome)",
+##	shadow:
+##		"shallow"
+#	conda:
+#		"envs/bbmap.yaml",
+#	shell:
+#		"""
+##increased Xmx option from 1g to 10g for sorting genome. also increased time from 1 min to 1 hr.
+#		(sortbyname.sh in={input} out={output.fasta} name=f length=t ascending=f -Xmx60g) 2> {log}
+#		"""
+#
+#rule generate_coverage_list:
+#	input:
+#		"1_{ass_type}_reads/sorted/{prefix}_{kmer}_{cov}.fasta",	
+#	output:
+#		"1_{ass_type}_reads/sorted/{prefix}_{kmer}_{cov}_coveragetable.txt",
+#	log:
+#		"logs/generate_coverage_list/assemblytype_{ass_type}_prefix_{prefix}_kmer_{kmer}_cov_{cov}.log",	
+#	benchmark:
+#		"benchmarks/generatecoveragelist/assemblytype_{ass_type}_prefix_{prefix}_kmer_{kmer}_cov_{cov}.tsv",
+#	threads:
+#		1
+#	params:
+#		length_mito = LENGTH_MITOCHONDRIA,
+#		length_chloro = LENGTH_CHLOROPLAST,
+#		length_genome = LENGTH_GENOME,
+#	shell:
+#		"""  
+#		if [ {wildcards.ass_type} == "chloroplast" ]; then
+#			LEN={params.length_chloro}
+#		elif [ {wildcards.ass_type} == "mitochondria" ]; then
+#			LEN={params.length_mito}
+#		elif [ {wildcards.ass_type} == "genome" ]; then
+#			LEN={params.length_genome}
+#		fi	
+#		touch length.tmp && rm length.tmp
+#		x=0
+#		awk '/^>/{{if (l!="") print l; l=0; next}}{{l+=length($0)}}' {input} >> length.tmp
+#		
+#		while IFS= read -r line
+#		do
+#			x=$(( ${{x}} + ${{line}} ))
+#			pr=$(( ${{x}} / ${{LEN}} ))
+#			echo "${{pr}}" >> {output}
+#		done < "length.tmp"
+#
+#		rm length.tmp
+#		"""
 	
 #subset each to specified depth for each genome
 rule select_longest:
@@ -301,9 +302,9 @@ rule flye_genome:
 	threads:
 		MAX_THREADS
 	resources:
-		time = lambda wildcards, input: (2160 if wildcards.ass_type == "genome" else 10),
-		mem_mb = lambda wildcards, input: (250000 if wildcards.ass_type == "genome" else 5000),
-		cpu = lambda wildcards, input: (32 if wildcards.ass_type == "genome" else 5),
+		time = lambda wildcards, input: (2000 if wildcards.ass_type == "genome" else 10),
+		mem_mb = lambda wildcards, input: (370000 if wildcards.ass_type == "genome" else 5000),
+		cpu = lambda wildcards, input: (MAX_THREADS if wildcards.ass_type == "genome" else 5),
 	params:
 		out = "3_{ass_type}_assembly/flye/{prefix}/{read_select}_{kmer}_{cov}_{depth}",
 		size = LENGTH_GENOME,
@@ -402,9 +403,9 @@ rule raven:
 	threads:
 		MAX_THREADS
 	resources: 
-		time = lambda wildcards, input: (240 if wildcards.ass_type == "genome" else 10),
-		mem_mb = lambda wildcards, input: (96000 if wildcards.ass_type == "genome" else 5000),
-		cpu = lambda wildcards, input: (32 if wildcards.ass_type == "genome" else 5),
+		time = lambda wildcards, input: (2000 if wildcards.ass_type == "genome" else 10),
+		mem_mb = lambda wildcards, input: (350000 if wildcards.ass_type == "genome" else 5000),
+		cpu = lambda wildcards, input: (MAX_THREADS if wildcards.ass_type == "genome" else 5),
 	conda:
 		"envs/raven.yaml",
 	shell:
@@ -424,9 +425,9 @@ rule wtdbg2:
 	threads:
 		MAX_THREADS
 	resources:
-		time = lambda wildcards, input: (300 if wildcards.ass_type == "genome" else 10),
-		mem_mb = lambda wildcards, input: (96000 if wildcards.ass_type == "genome" else 5000),
-		cpu = lambda wildcards, input: (32 if wildcards.ass_type == "genome" else 5),	
+		time = lambda wildcards, input: (2000 if wildcards.ass_type == "genome" else 10),
+		mem_mb = lambda wildcards, input: (350000 if wildcards.ass_type == "genome" else 5000),
+		cpu = lambda wildcards, input: (MAX_THREADS if wildcards.ass_type == "genome" else 5),	
 	shadow:	
 		"shallow"
 	params:
@@ -526,9 +527,9 @@ rule canu:
 		
 		if [ {wildcards.ass_type} == 'genome' ]; then
 			SIZE={params.genome}
-			JTIME="--time=12:00:00"
-			ETIME="--time=00:10:00"
-			echo "Starting job {params.jobName}, genome assembly."
+			JTIME="--time=72:00:00"
+			ETIME="--time=72:00:00"
+			echo "Starting job {params.jobName}, Canu genome assembly."
 			(canu -p {params.prefix} -d {params.dir} genomeSize=${{SIZE}} gridOptions=${{JTIME}} gridOptionsJobName={params.jobName} gridOptionsExecutive=${{ETIME}} executiveMemory=4 corMhapFilterThreshold=0.0000000002 gridOptionsCORMHAP="--time=72:00:00" corMhapOptions="--threshold 0.80 --num-hashes 512 --num-min-matches 3 --ordered-sketch-size 1000 --ordered-kmer-size 14 --min-olap-length 2000 --repeat-idf-scale 50" mhapMemory=60g mhapBlockSize=500 ovlMerThreshold=500 -pacbio-raw {input} stopOnLowCoverage=3 onSuccess=touch onFailure=./canuFailure.sh) 2> {log}
 		else
 			echo "Starting job {params.jobName}, {wildcards.ass_type} assembly."
