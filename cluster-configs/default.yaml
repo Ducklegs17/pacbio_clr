@@ -37,6 +37,11 @@ samtools_fastq :
         mem           : "20000"
         time          : "00-05:00:00"
 
+bam2fastq:
+        cpus-per-task : 48
+        mem           : "10000"
+        time          : "00-05:00:00"
+
 bbduk :
         cpus-per-task : 20
         mem           : "10000"

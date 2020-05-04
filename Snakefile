@@ -31,6 +31,7 @@ localrules:
 rule all:
 	input:
 #		"SequelToolsResults/summaryTable.txt",
+		expand("0_raw/fastq/{PREFIX}.fastq", PREFIX = PREFIXES),
 #		expand("1_{ASS_TYPE}_reads/{PREFIX}_{KMER}_{COV}.fasta", ASS_TYPE = ASSEMBLY_TYPE, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE),
 #		expand("1_{ASS_TYPE}_reads/sorted/{PREFIX}_{KMER}_{COV}.fasta", ASS_TYPE = ASSEMBLY_TYPE, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE),
 #		expand("1_{ASS_TYPE}_reads/sorted/{PREFIX}_{KMER}_{COV}_coveragetable.txt", ASS_TYPE = ASSEMBLY_TYPE, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE),
@@ -86,7 +87,7 @@ rule all:
 #		"""
 #
 
-rule bbduk2fastq:
+rule bam2fastq:
 	input:
 		 seq = "0_raw/{prefix}.subreads.bam",
 	output:
@@ -112,7 +113,7 @@ rule filtlong:
 	log:
 		"logs/filtlong/genome_{prefix}_filtlong_{kmer}_{cov}_{depth}.log",
 	benchmark:
-		"benchmarks/filtlong/assemblytype_{ass_type}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+		"benchmarks/filtlong/assemblytype_genome_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
 	threads:
 		MAX_THREADS
 	params:
