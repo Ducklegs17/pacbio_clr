@@ -13,7 +13,7 @@ LENGTH_MITOCHONDRIA = ["415805"]
 LENGTH_GENOME = ["387500000"]
 ASSEMBLY_TOOLS = ["raven","wtdbg2","canu","flye"]
 ASSEMBLY_TYPE = ["genome"]
-READ_SELECTION_METHOD = ["longest","random"]
+READ_SELECTION_METHOD = ["longest","random","filtlong"]
 WTDBG2_PATH1 = "/shared/cmatthews/tools/wtdbg2/wtdbg2"
 WTDBG2_PATH2 = "/shared/cmatthews/tools/wtdbg2/wtpoa-cns"
 MUMMER_PATH = "/shared/cmatthews/tools/mummer-4.0.0beta2/"
@@ -85,6 +85,46 @@ rule all:
 #		bbduk.sh in={input.seq} outm={output.out} ref={input.ass} threads={threads} k={wildcards.kmer} -Xmx1g mincovfraction={wildcards.cov}
 #		"""
 #
+
+rule bbduk2fastq:
+	input:
+		 seq = "0_raw/{prefix}.subreads.bam",
+	output:
+		"0_raw/fastq/{prefix}.fastq",
+	log:
+		"logs/bbduk2fastq/{prefix}.log",
+	benchmark:
+		"benchmarks/bbduk2fastq/{prefix}.tsv",
+	threads:
+		MAX_THREADS
+	conda:
+		"envs/bbmap.yaml",
+	shell:
+		"""
+		reformat.sh in={input.seq} out={output}
+		"""
+
+rule filtlong:
+	input:
+		"0_raw/fastq/{prefix}.fastq",
+	output:
+		"2_genome_subset/filtlong/{prefix}_{kmer}_{cov}_{depth}.fasta",
+	log:
+		"logs/filtlong/genome_{prefix}_filtlong_{kmer}_{cov}_{depth}.log",
+	benchmark:
+		"benchmarks/filtlong/assemblytype_{ass_type}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+	threads:
+		MAX_THREADS
+	params:
+		length = LENGTH_GENOME,
+	conda:
+		"envs/filtlong.yaml",
+	shell:
+		"""
+		DEPTH="$(( {wildcards.depth} * {params.length} ))"
+		filtlong --min_length {wildcards.kmer} --min_mean_q {wildcards.cov} --target_bases ${{DEPTH}} {input} | sed -n '1~4s/^@/>/p;2~4p' > {output}
+		"""
+
 #rule bbduk_genome:
 #	input:
 #		seq = "0_raw/{prefix}.subreads.bam",
