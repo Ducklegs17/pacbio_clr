@@ -547,10 +547,11 @@ rule canu:
 		mito = LENGTH_MITOCHONDRIA,
 		genome = LENGTH_GENOME,
 		jobName = "{depth}{kmer}{cov}",
-#	conda:
-#		"envs/canu.yaml",
+	conda:
+		"envs/canu.yaml",
 	shell:
 		"""
+		rm -f {params.dir}/failure
 		cp canuFailure.sh {params.dir}
 		CORMHAP=""
 		REPEAT=""
