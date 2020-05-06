@@ -64,6 +64,11 @@ select_longest:
         mem           : "3000"
         time          : "00-00:30:00"
 
+filtlong:
+        cpus-per-task : 1
+        mem           : "5000"
+        time          : "00-00:01:00"
+
 #Seqtk subsets the reads to get the approximate desired coverage for the assembly
 seqtk_genome: 
         cpus-per-task : 1
