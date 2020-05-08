@@ -13,13 +13,15 @@ LENGTH_MITOCHONDRIA = ["415805"]
 LENGTH_GENOME = ["387500000"]
 ASSEMBLY_TOOLS = ["raven","wtdbg2","canu","flye"]
 ASSEMBLY_TYPE = ["genome"]
-READ_SELECTION_METHOD = ["longest","random","filtlong"]
+READ_SELECTION_METHOD = ["longest","random"]
+POLISH_DEPTH = ["10","25","50","75","100","125","150"]
+LTRFILES = ["rawLTR.scn","assembly.fasta.out.LAI"]
+CANU_BENCHMARK_FILES = ["job_finish_state","submit_time","start_time","end_time","walltime_reserved","walltime_elapsed","max_memory","max_disk_write","max_disk_read","num_cores"]
+
 WTDBG2_PATH1 = "/shared/cmatthews/tools/wtdbg2/wtdbg2"
 WTDBG2_PATH2 = "/shared/cmatthews/tools/wtdbg2/wtpoa-cns"
 MUMMER_PATH = "/shared/cmatthews/tools/mummer-4.0.0beta2/"
 LTR_FINDER_PATH = "/shared/cmatthews/tools/LTR_FINDER_parallel-master/LTR_FINDER_parallel"
-LTRFILES = ["rawLTR.scn","assembly.fasta.out.LAI"]
-CANU_BENCHMARK_FILES = ["job_finish_state","submit_time","start_time","end_time","walltime_reserved","walltime_elapsed","max_memory","max_disk_write","max_disk_read","num_cores"]
 
 localrules: 
 	all,
@@ -27,6 +29,7 @@ localrules:
 	generate_coverage_list,
 	benchcanu,
 	select_longest,
+	filtlong,
 
 rule all:
 	input:
@@ -43,6 +46,7 @@ rule all:
 		expand("ltr/finder/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/assembly.fasta.finder.combine.scn", TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
 		expand("ltr/retriever/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/{LTRFILE}", TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE, LTRFILE = LTRFILES),	
 		expand("benchmarkcanu/assemblytype_{ASS_TYPE}_assemblytool_{TOOL}_prefix_{PREFIX}_readselect_{READ_SELECT}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/{CANU_BENCHMARKS}.txt", ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE, CANU_BENCHMARKS = CANU_BENCHMARK_FILES),
+		expand("4_{ASS_TYPE}_polished/{TOOL}/{PREFIX}/{READ_SELECT}_{KMER}_{COV}_{DEPTH}/{POLISHDEPTH}/1_assembly.fasta", ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, READ_SELECTION = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE,POLISHDEPTH = POLISH_DEPTH),
 
 #Check read quality and length stats
 #rule sequelTools:
@@ -102,7 +106,7 @@ rule bam2fastq:
 		"envs/bbmap.yaml",
 	shell:
 		"""
-		reformat.sh in={input.seq} out={output}
+		reformat.sh in={input.seq} out={output} aqhist=test_meanQual_histogram.txt
 		"""
 
 rule filtlong:
@@ -124,7 +128,30 @@ rule filtlong:
 		"""
 		DEPTH="$(( {wildcards.depth} * {params.length} ))"
 		filtlong --min_length {wildcards.kmer} --min_mean_q {wildcards.cov} --target_bases ${{DEPTH}} {input} | sed -n '1~4s/^@/>/p;2~4p' > {output}
+#		../tools/Filtlong/scripts/read_info_histograms.sh {input} > {output}
 		"""
+
+#rule filtlong_genome:
+#	input:
+#		"0_raw/fastq/{prefix}.fastq",
+#	output:
+#		"2_genome_subset/filtlong/{prefix}_{kmer}_{cov}_{depth}.fasta",
+#	log:
+#		"logs/filtlong/genome_{prefix}_filtlong_{kmer}_{cov}_{depth}.log",
+#	benchmark:
+#		"benchmarks/filtlong/assemblytype_genome_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+#	threads:
+#		MAX_THREADS
+#	params:
+#		length = LENGTH_GENOME,
+#	conda:
+#		"envs/filtlong.yaml",
+#	shell:
+#		"""
+##		DEPTH="$(( {wildcards.depth} * {params.length} ))"
+##		filtlong --min_length {wildcards.kmer} --min_mean_q {wildcards.cov} --target_bases ${{DEPTH}} {input} | sed -n '1~4s/^@/>/p;2~4p' > {output}
+#		../tools/Filtlong/scripts/read_info_histograms.sh {input} > {output}
+#		"""
 
 #rule bbduk_genome:
 #	input:
@@ -546,7 +573,7 @@ rule canu:
 		chlor = LENGTH_CHLOROPLAST,
 		mito = LENGTH_MITOCHONDRIA,
 		genome = LENGTH_GENOME,
-		jobName = "{depth}{kmer}{cov}",
+		jobName = "clr{depth}{read_select}",
 	conda:
 		"envs/canu.yaml",
 	shell:
@@ -837,29 +864,49 @@ rule run_mummer3:
 
 		"""
 
+rule minimap2_clr:
+	input:
+		draft = "3_{ass_type}_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
+		reads = "2_{ass_type}_subset/{read_select}/{prefix}_{kmer}_{cov}_{depth}.fasta",
+	output:
+		temp("3_{ass_type}_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/clr_mapped.sam"),
+	log:
+		"logs/minimap2_clr/{ass_type}_{tool}_{prefix}_{read_select}_{kmer}_{cov}_{depth}.log",
+	benchmark:
+		"benchmarks/minimap2clr/assemblytype_{ass_type}_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}.tsv",
+	conda:
+		"envs/minimap.yaml",
+	params:
+		dir = "3_{ass_type}_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}",
+	threads:
+		MAX_THREADS
+	shell:
+		"""
+#		minimap2 --secondary=no --MD -ax asm20 -t {threads} {input.draft} {input.reads} | samtools view -Sb - > {params.dir}/temp
+#		samtools sort -@{threads} -o {output} {params.dir}/temp
+#		rm {params.dir}/temp
+		minimap2 -ax map-pb --eqx -m 5000 -t {threads} --secondary=no {input.draft} {input.reads} | samtools view -F 1796 - > {output}
+		"""
 
-
-#BUSCO checks for the presence of single copy orthologs
-#rule busco:
-#	input:
-#		fasta = "2_assembly/assembly.fasta",
-#	output:
-#		"5_busco/missing_busco_list.tsv",
-#	log:
-#		"logs/busco/ass.log",
-#	benchmark:
-#		"benchmarks/busco/ass.tsv",
-#	threads:
-#		1
-#	params:
-#		out = "4_busco",
-#		lineage = BUSCO_LINEAGE,
-#	conda:
-#		"envs/busco.yaml",
-#	shell:
-#		"""
-#		busco -m genome -i {input} -o {params.out} -l {params.lineage} -c {threads} 
-#		"""
+rule racon_clr:
+	input:
+		sam = "3_{ass_type}_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/clr_mapped.sam",
+		draft = "3_{ass_type}_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
+		reads = "2_{ass_type}_subset/longest/{prefix}_{kmer}_{cov}_{polishdepth}.fasta",
+	output:
+		"4_{ass_type}_polished/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/{polishdepth}/1_assembly.fasta",
+	log:
+		"logs/racon_clr/{ass_type}_{tool}_{prefix}_{read_select}_{kmer}_{cov}_{depth}_{polishdepth}.log",
+	benchmark:
+		"benchmarks/raconclr/assemblytype_{ass_type}_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishdepth_{polishdepth}.tsv",
+	conda:
+		"envs/racon.yaml",
+	threads:
+		48
+	shell:
+		"""
+		racon {input.reads} {input.sam} {input.draft} -u -t {threads} > {output.fasta}
+		"""
 
 #=====================================================
 # Chloroplast assembly
