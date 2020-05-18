@@ -32,6 +32,11 @@ sequelTools :
 #        mem           : "200"
 #        time          : "00-00:15:00"
 
+get_raw_length_distribution: 
+        cpus-per-task : 1
+        mem           : "3000"
+        time          : "00-02:00:00"
+
 samtools_fastq :
         cpus-per-task : 32
         mem           : "20000"
@@ -101,15 +106,20 @@ quast :
         mem           : "{resources.mem_mb}"
         time          : "00-00:{resources.time}:00"
 
-minimap2_clr:
-        cpus-per-task : 10
-        mem           : "30000"
-        time          : "00-10:00:00"
+quastref :
+        cpus-per-task : "{resources.cpu}"
+        mem           : "{resources.mem_mb}"
+        time          : "00-00:{resources.time}:00"
 
-racon_clr:
-        cpus-per-task : 10
-        mem           : "30000"
-        time          : "00-10:00:00"
+minimap2_1:
+        cpus-per-task : "{resources.cpu}"
+        mem           : "{resources.mem_mb}"
+        time          : "00-00:{resources.time}:00"
+
+racon_1:
+        cpus-per-task : "{resources.cpu}"
+        mem           : "{resources.mem_mb}"
+        time          : "00-00:{resources.time}:00"
 
 raven :
         cpus-per-task : "{resources.cpu}"
@@ -136,20 +146,25 @@ mummer :
         mem           : "{resources.mem_mb}"
         time          : "00-00:{resources.time}:00"
 
+busco :
+        cpus-per-task : 10
+        mem           : "30000"
+        time          : "00-12:00:00"
+
 gt_ltrharvest:
-        cpus-per-task : 5
-        mem           : "15000"
-        time          : "00-01:30:00"
+        cpus-per-task : 1
+        mem           : "6000"
+        time          : "00-09:30:00"
 
 ltr_finder:
-        cpus-per-task : 5
-        mem           : "12000"
+        cpus-per-task : 10
+        mem           : "30000"
         time          : "00-00:20:00"
 
 ltr_retriever:
         cpus-per-task : 10
-        mem           : "20000"
-        time          : "00-03:30:00"
+        mem           : "30000"
+        time          : "00-18:00:00"
 
 #make_fofn :
 #        cpus-per-task : 1
