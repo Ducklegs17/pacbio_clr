@@ -111,6 +111,11 @@ quastref :
         mem           : "{resources.mem_mb}"
         time          : "00-00:{resources.time}:00"
 
+quastref_polished:
+        cpus-per-task : "{resources.cpu}"
+        mem           : "{resources.mem_mb}"
+        time          : "00-00:{resources.time}:00"
+
 minimap2_1:
         cpus-per-task : "{resources.cpu}"
         mem           : "{resources.mem_mb}"
@@ -120,6 +125,17 @@ racon_1:
         cpus-per-task : "{resources.cpu}"
         mem           : "{resources.mem_mb}"
         time          : "00-00:{resources.time}:00"
+
+minimap2_2:
+        cpus-per-task : "{resources.cpu}"
+        mem           : "{resources.mem_mb}"
+        time          : "00-00:{resources.time}:00"
+
+racon_2:
+        cpus-per-task : "{resources.cpu}"
+        mem           : "{resources.mem_mb}"
+        time          : "00-00:{resources.time}:00"
+
 
 raven :
         cpus-per-task : "{resources.cpu}"
@@ -146,15 +162,26 @@ mummer :
         mem           : "{resources.mem_mb}"
         time          : "00-00:{resources.time}:00"
 
+mummer_polished :
+        cpus-per-task : "{resources.cpu}"
+        mem           : "{resources.mem_mb}"
+        time          : "00-00:{resources.time}:00"
+
+
 busco :
-        cpus-per-task : 10
+        cpus-per-task : 12
         mem           : "30000"
-        time          : "00-12:00:00"
+        time          : "00-36:00:00"
+
+busco_polished :
+        cpus-per-task : 12
+        mem           : "30000"
+        time          : "00-24:00:00"
 
 gt_ltrharvest:
         cpus-per-task : 1
         mem           : "6000"
-        time          : "00-09:30:00"
+        time          : "00-24:00:00"
 
 ltr_finder:
         cpus-per-task : 10
@@ -164,7 +191,22 @@ ltr_finder:
 ltr_retriever:
         cpus-per-task : 10
         mem           : "30000"
-        time          : "00-18:00:00"
+        time          : "00-24:00:00"
+
+gt_ltrharvest_polished:
+        cpus-per-task : 1
+        mem           : "6000"
+        time          : "00-24:00:00"
+
+ltr_finder_polished:
+        cpus-per-task : 10
+        mem           : "30000"
+        time          : "00-00:20:00"
+
+ltr_retriever_polished:
+        cpus-per-task : 10
+        mem           : "30000"
+        time          : "00-24:00:00"
 
 #make_fofn :
 #        cpus-per-task : 1

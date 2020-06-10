@@ -16,8 +16,8 @@ ASSEMBLY_TYPE = ["genome"]
 READ_SELECTION_METHOD = ["longest","random"]
 POLISH_DEPTH = ["10","25","50","75","100","125","150"]
 POLISH_READ_SELECT = ["10","25","50","75","100","125","150"]
-LTRFILES = ["rawLTR.scn"]
 CANU_BENCHMARK_FILES = ["job_finish_state","submit_time","start_time","end_time","walltime_reserved","walltime_elapsed","max_memory","max_disk_write","max_disk_read","num_cores"]
+POLISHROUND = ["1","2"]
 
 WTDBG2_PATH1 = "/home/a1761942/fast_dir/tools/wtdbg2/wtdbg2"
 WTDBG2_PATH2 = "/home/a1761942/fast_dir/tools/wtdbg2/wtpoa-cns"
@@ -47,13 +47,15 @@ rule all:
 		expand("quastref/assemblytype_{ASS_TYPE}_assemblytool_{TOOL}_prefix_{PREFIX}_readselect_{READ_SELECTION}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/report.tsv", ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, PREFIX = PREFIXES, READ_SELECTION = READ_SELECTION_METHOD, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
 		expand("ltr/harvest/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/assembly.fa.harvest.scn",TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
 		expand("ltr/finder/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/assembly.fasta.finder.combine.scn", TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
-		expand("ltr/retriever/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/{LTRFILE}", TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE, LTRFILE = LTRFILES),	
-		expand("benchmarkcanu/assemblytype_{ASS_TYPE}_assemblytool_{TOOL}_prefix_{PREFIX}_readselect_{READ_SELECT}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/{CANU_BENCHMARKS}.txt", ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE, CANU_BENCHMARKS = CANU_BENCHMARK_FILES),
+		expand("ltr/retriever/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/LAI_score.txt", TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),	
+		expand("benchcanu/assemblytype_{ASS_TYPE}_assemblytool_{TOOL}_prefix_{PREFIX}_readselect_{READ_SELECT}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/{CANU_BENCHMARKS}.txt", ASS_TYPE = ASSEMBLY_TYPE, TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE, CANU_BENCHMARKS = CANU_BENCHMARK_FILES),
 		expand("busco/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}/results/run_poales_odb10/full_table.tsv", TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
-		expand("4_{ASS_TYPE}_polished/{TOOL}/{PREFIX}/{READ_SELECTION}_{KMER}_{COV}_{DEPTH}/{POLISHDEPTH}_{POLISH_SELECT}/1_assembly.fasta", ASS_TYPE = ASSEMBLY_TYPE, POLISH_SELECT = POLISH_READ_SELECT,TOOL = ASSEMBLY_TOOLS, READ_SELECTION = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE,POLISHDEPTH = POLISH_DEPTH),
+		expand("4_{ASS_TYPE}_polished/{TOOL}/{PREFIX}/{READ_SELECTION}_{KMER}_{COV}_{DEPTH}/{POLISHDEPTH}_{POLISH_SELECT}/{ROUND}_assembly.fasta", ASS_TYPE = ASSEMBLY_TYPE, POLISH_SELECT = POLISH_READ_SELECT,TOOL = ASSEMBLY_TOOLS, READ_SELECTION = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE,POLISHDEPTH = POLISH_DEPTH, ROUND = POLISHROUND),
 		expand("length/{ASS_TYPE}_{TOOL}_{PREFIX}_{READ_SELECT}_{KMER}_{COV}_{DEPTH}.txt", ASS_TYPE = ASSEMBLY_TYPE, PREFIX = PREFIXES, TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE),
-
-
+		expand("quastref/assemblytype_{ASS_TYPE}_assemblytool_{TOOL}_prefix_{PREFIX}_readselect_{READ_SELECTION}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}_polishselect_{POLISH_SELECT}_polishdepth_{POLISHDEPTH}_polishround_{ROUND}/report.tsv",ASS_TYPE = ASSEMBLY_TYPE, POLISH_SELECT = POLISH_READ_SELECT,TOOL = ASSEMBLY_TOOLS, READ_SELECTION = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE, POLISHDEPTH = POLISH_DEPTH, ROUND = POLISHROUND),
+		expand("mummer/{ASS_TYPE}/prefix_{PREFIX}_assemblytool_{TOOL}_readselect_{READ_SELECTION}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}_polishselect_{POLISH_SELECT}_polishdepth_{POLISHDEPTH}_polishround_{ROUND}.delta", ASS_TYPE = ASSEMBLY_TYPE, POLISH_SELECT = POLISH_READ_SELECT,TOOL = ASSEMBLY_TOOLS, READ_SELECTION = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE, POLISHDEPTH = POLISH_DEPTH, ROUND = POLISHROUND),
+		expand("ltr/retriever/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}_polishselect_{POLISH_SELECT}_polishdepth_{POLISHDEPTH}_polishround_{ROUND}/LAI_score.txt", ASS_TYPE = ASSEMBLY_TYPE, POLISH_SELECT = POLISH_READ_SELECT,TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE, POLISHDEPTH = POLISH_DEPTH, ROUND = POLISHROUND),
+		expand("busco/assemblytype_genome_assemblytool_{TOOL}_readselect_{READ_SELECT}_prefix_{PREFIX}_kmer_{KMER}_cov_{COV}_depth_{DEPTH}_polishselect_{POLISH_SELECT}_polishdepth_{POLISHDEPTH}_polishround_{ROUND}/results/run_poales_odb10/full_table.tsv", ASS_TYPE = ASSEMBLY_TYPE, POLISH_SELECT = POLISH_READ_SELECT,TOOL = ASSEMBLY_TOOLS, READ_SELECT = READ_SELECTION_METHOD, PREFIX = PREFIXES, KMER = BBDUK_KMER_LENGTH, COV = BBDUK_MIN_COVERAGE, DEPTH = READ_COVERAGE, POLISHDEPTH = POLISH_DEPTH, ROUND = POLISHROUND),
 
 rule get_raw_length_distribution:
 	input:
@@ -700,7 +702,6 @@ rule busco:
 		fasta = "3_genome_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
 	output:
 		"busco/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/results/run_poales_odb10/full_table.tsv",
-#		"busco/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{sample}_kmer_{kmer}_cov_{cov}_depth_{depth}/results/short_summary.specific.poales_odb10.results.txt",
 	log:
 		"logs/busco/genome/{tool}_{read_select}_{prefix}_{kmer}_{cov}_{depth}.log",
 	benchmark:
@@ -713,6 +714,33 @@ rule busco:
 		"docker://ezlabgva/busco:v4.0.5_cv1",
 	params:
 		outdir = "assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}",
+		lineage_path = "./reference/poales_odb10",
+	shell:
+		"""
+		(busco -f --in {input.fasta} --out results --lineage_dataset {params.lineage_path} --cpu {threads} --mode genome) 2> {log}
+		mv results/short_summary.specific.poales_odb10.results.txt busco/{params.outdir}/results
+		mv results/blast_db busco/{params.outdir}/results
+#		mv results/logs busco/{params.outdir}/results
+		mv results/run_poales_odb10/* busco/{params.outdir}/results/run_poales_odb10/
+		"""
+
+rule busco_polished:
+	input:
+		fasta = "4_genome_polished/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/{polishdepth}_{polishselect}/{polishround}_assembly.fasta",
+	output:
+		"busco/assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}/results/run_poales_odb10/full_table.tsv",
+	log:
+		"logs/busco_polished/genome/{tool}_{read_select}_{prefix}_{kmer}_{cov}_{depth}_{polishselect}_{polishdepth}_{polishround}.log",
+	benchmark:
+		"benchmarks/buscopolished/assemblytype_genome_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}.tsv",
+	threads:
+		MAX_THREADS
+	shadow:
+		"full",
+	singularity:
+		"docker://ezlabgva/busco:v4.0.5_cv1",
+	params:
+		outdir = "assemblytype_genome_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}",
 		lineage_path = "./reference/poales_odb10",
 	shell:
 		"""
@@ -744,18 +772,37 @@ rule gt_ltrharvest:
 		dir = "ltr/harvest/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}/",
 	shell:
 		"""
-#		if [ {wildcards.tool} == 'raven' ]; then
-#			reformat.sh in={input} out={params.dir}temp.fasta fastawrap=80
-#			gt suffixerator -db {params.dir}temp.fasta -indexname suffixer.fa -tis -suf -lcp -des -ssp -sds -dna
-#			gt ltrharvest -index suffixer.fa -minlenltr 100 -maxlenltr 7000 -mintsd 4 -maxtsd 6 -motif TGCA -motifmis 1 -similar 85 -vic 10 -seed 20 -seqids yes > out.scn
-#			mv  out.scn {output}
-#			mv suffixer* {params.dir}
-#		else
 			gt suffixerator -db {input} -indexname suffixer.fa -tis -suf -lcp -des -ssp -sds -dna
 			gt ltrharvest -index suffixer.fa -minlenltr 100 -maxlenltr 7000 -mintsd 4 -maxtsd 6 -motif TGCA -motifmis 1 -similar 85 -vic 10 -seed 20 -seqids yes > out.scn
 			mv  out.scn {output}
 			mv suffixer* {params.dir}
-#		fi
+		"""
+
+rule gt_ltrharvest_polished:
+	input:
+		"4_{ass_type}_polished/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/{polishdepth}_{polishselect}/{polishround}_assembly.fasta",
+	output:
+		"ltr/harvest/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}/assembly.fa.harvest.scn",
+	log:
+		"logs/gt_ltrharvest_polished/{ass_type}/{tool}_{read_select}_{prefix}_{kmer}_{cov}_{depth}_{polishselect}_{polishdepth}_{polishround}.log",
+	benchmark:
+		"benchmarks/gtltrharvestpolished/assemblytype_{ass_type}_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}.tsv",
+	threads:
+		1
+	shadow:
+		"shallow",
+	wildcard_constraints:
+		ass_type = "genome",
+	conda:
+		"envs/genometools.yaml",
+	params:
+		dir = "ltr/harvest/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}/",
+	shell:
+		"""
+			gt suffixerator -db {input} -indexname suffixer.fa -tis -suf -lcp -des -ssp -sds -dna
+			gt ltrharvest -index suffixer.fa -minlenltr 100 -maxlenltr 7000 -mintsd 4 -maxtsd 6 -motif TGCA -motifmis 1 -similar 85 -vic 10 -seed 20 -seqids yes > out.scn
+			mv  out.scn {output}
+			mv suffixer* {params.dir}
 		"""
 
 rule ltr_finder:
@@ -780,6 +827,30 @@ rule ltr_finder:
 		"""
 		perl {params.finder} -seq {input} -threads {threads} -harvest_out -size 1000000 -time 300
 		mv assembly* {params.dir}
+		"""
+
+rule ltr_finder_polished:
+	input:
+		"4_{ass_type}_polished/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/{polishdepth}_{polishselect}/{polishround}_assembly.fasta",
+	output:
+		"ltr/finder/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}/{polishround}_assembly.fasta.finder.combine.scn",
+	log:
+		"logs/ltr_finder_polished/{ass_type}/{tool}_{read_select}_{prefix}_{kmer}_{cov}_{depth}_{polishselect}_{polishdepth}_{polishround}.log",
+	benchmark:
+		"benchmarks/ltrfinderpolished/assemblytype_{ass_type}_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}.tsv",
+	threads:
+		10
+	shadow:
+		"shallow",
+	wildcard_constraints:
+		ass_type = "genome",
+	params:
+		dir = "ltr/finder/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}/",
+		finder = LTR_FINDER_PATH,
+	shell:
+		"""
+		perl {params.finder} -seq {input} -threads {threads} -harvest_out -size 1000000 -time 300
+		mv {wildcards.polishround}_assembly* {params.dir}
 		"""
 
 rule ltr_retriever:
@@ -814,31 +885,43 @@ rule ltr_retriever:
 		
 		mv assembly.fasta.*.LAI {params.dir}LAI_score.txt
 		touch {output.dummy}
-#		if [ {wildcards.tool} == 'hifiasm' ]; then
-#			mv assembly.fasta.out.* {params.dir}
-#			rm assembly.fasta.out
-#			rm {params.dir}assembly.fasta
-#			touch {output.dummy}
-#		fi
-#
-#		if [ {wildcards.tool} == 'canu' ]; then
-#			mv assembly.fasta.mod.out.* {params.dir}
-#			rm assembly.fasta.mod.out
-#			rm {params.dir}assembly.fasta
-#			mv {params.dir}assembly.fasta.mod.out.LAI {params.dir}assembly.fasta.out.LAI
-#			touch {output.dummy}
-#		fi
-#
-#		if [ {wildcards.tool} == 'hicanu' ]; then
-#			mv assembly.fasta.mod.out.* {params.dir}
-#			rm assembly.fasta.mod.out
-#			rm {params.dir}assembly.fasta
-#			mv {params.dir}assembly.fasta.mod.out.LAI {params.dir}assembly.fasta.out.LAI
-#			touch {output.dummy}
-#		fi
-#
 		"""
 
+
+rule ltr_retriever_polished:
+	input:
+		genome = "4_{ass_type}_polished/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/{polishdepth}_{polishselect}/{polishround}_assembly.fasta",
+		finder = "ltr/finder/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}/{polishround}_assembly.fasta.finder.combine.scn",
+		harvest = "ltr/harvest/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}/assembly.fa.harvest.scn",
+	output:
+		scn = "ltr/retriever/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}/rawLTR.scn",
+		lai =  "ltr/retriever/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}/LAI_score.txt",
+		dummy = "ltr/retriever/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}/complete",
+	log:
+		"logs/ltr_retriever_polished/{ass_type}/{tool}_{read_select}_{prefix}_{kmer}_{cov}_{depth}_{polishselect}_{polishdepth}_{polishround}.log",
+	benchmark:
+		"benchmarks/ltrretrieverpolished/assemblytype_{ass_type}_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}.tsv",
+	threads:
+		10
+	shadow:
+		"shallow",
+	wildcard_constraints:
+		ass_type = "genome",
+		polishround = "(1|2)",
+	conda:
+		"envs/ltr.yaml",
+	params:
+		dir = "ltr/retriever/assemblytype_{ass_type}_assemblytool_{tool}_readselect_{read_select}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}/",
+	shell:
+		"""
+		cat {input.finder} {input.harvest} > {output.scn}
+		rm -f {params.dir}assembly.fasta
+		cp {input.genome} {params.dir}
+		LTR_retriever -genome {params.dir}{wildcards.polishround}_assembly.fasta -inharvest {output.scn} -threads {threads}
+		
+		mv {wildcards.polishround}_assembly.fasta.*.LAI {params.dir}LAI_score.txt
+		touch {output.dummy}
+		"""
 
 rule quast:
 	input:
@@ -866,6 +949,7 @@ rule quast:
 		quast {input} --threads {threads} -o {params.out}
 		"""
 
+
 rule quastref:
 	input:
 		ass = "3_{ass_type}_assembly/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/assembly.fasta",
@@ -880,8 +964,36 @@ rule quastref:
 		MAX_THREADS
 	params:
 		out = "quastref/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}",
-#	conda:
-#		"envs/quast.yaml",
+	singularity:
+		"docker://quay.io/biocontainers/quast:5.0.2--1"
+	resources:
+		time = lambda wildcards, input: (60 if wildcards.ass_type == "genome" else 1),
+		mem_mb = lambda wildcards, input: (15000 if wildcards.ass_type == "genome" else 3000),
+		cpu = lambda wildcards, input: (5 if wildcards.ass_type == "genome" else 1),
+	shell:
+		"""
+		if [ {wildcards.ass_type} == 'genome' ]; then
+			quast {input.ass} --eukaryote --no-icarus --no-html --large -r {input.ref} --threads {threads} -o {params.out}
+		else
+			quast {input.ass} --no-icarus --no-html -r {input.ref} --threads {threads} -o {params.out}
+		fi
+		"""
+
+
+rule quastref_polished:
+	input:
+		ass = "4_{ass_type}_polished/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/{polishdepth}_{polishselect}/{polishround}_assembly.fasta",
+		ref = "reference/{ass_type}.fasta",
+	output:
+		"quastref/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}/report.tsv",
+	log:
+		"logs/quastref_polished/{ass_type}/{tool}/{prefix}_{read_select}_{kmer}_{cov}_{depth}_{polishselect}_{polishdepth}_{polishround}.log",
+	benchmark:
+		"benchmarks/quastrefpolished/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}.tsv",
+	threads:
+		MAX_THREADS
+	params:
+		out = "quastref/assemblytype_{ass_type}_assemblytool_{tool}_prefix_{prefix}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}",
 	singularity:
 		"docker://quay.io/biocontainers/quast:5.0.2--1"
 	resources:
@@ -915,14 +1027,12 @@ rule mummer:
 	shadow:
 		"shallow"
 	resources:
-		time = lambda wildcards, input: (40 if wildcards.ass_type == "genome" else 1),
+		time = lambda wildcards, input: (100 if wildcards.ass_type == "genome" else 1),
 		mem_mb = lambda wildcards, input: (30000 if wildcards.ass_type == "genome" else 200),
 		cpu = lambda wildcards, input: (10 if wildcards.ass_type == "genome" else 1),
 	params:
 		pref = "prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}",
 		mummer = MUMMER_PATH,
-#	conda:
-#		"envs/mummer.yaml",
 	shell:
 		"""
 		if [ {wildcards.ass_type} == "chloroplast" ]; then
@@ -947,6 +1057,52 @@ rule mummer:
 		"""
 
 
+rule mummer_polished:
+	input:
+		chlor = "reference/chloroplast.fasta",
+		mito = "reference/mitochondria.fasta",
+		genome = "reference/genome.fasta",
+		query = "4_{ass_type}_polished/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/{polishdepth}_{polishselect}/{polishround}_assembly.fasta",
+	output:
+		mums = "mummer/{ass_type}/prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}.delta",
+		gp = "mummer/{ass_type}/prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}.gp",
+	log:
+		"logs/mummer_polished/{prefix}_{ass_type}/{read_select}_assemblytool_{tool}_ref_query_{kmer}_{cov}_{depth}_polishselect_{polishselect}_{polishdepth}_{polishround}.log",
+	benchmark:
+		"benchmarks/mummerpolished/prefix_{prefix}_assemblytool_{tool}_assemblytype_{ass_type}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}.tsv",
+	threads:
+		MAX_THREADS
+	shadow:
+		"shallow"
+	resources:
+		time = lambda wildcards, input: (100 if wildcards.ass_type == "genome" else 1),
+		mem_mb = lambda wildcards, input: (30000 if wildcards.ass_type == "genome" else 200),
+		cpu = lambda wildcards, input: (10 if wildcards.ass_type == "genome" else 1),
+	params:
+		pref = "prefix_{prefix}_assemblytool_{tool}_readselect_{read_select}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishselect_{polishselect}_polishdepth_{polishdepth}_polishround_{polishround}",
+		mummer = MUMMER_PATH,
+	shell:
+		"""
+		if [ {wildcards.ass_type} == "chloroplast" ]; then
+			REF={input.chlor}
+		fi
+
+		if [ {wildcards.ass_type} == "mitochondria" ]; then
+			REF={input.mito}
+		fi
+
+		if [ {wildcards.ass_type} == "genome" ]; then
+			REF={input.genome}
+		fi
+
+		({params.mummer}nucmer -t {threads} --prefix={params.pref} ${{REF}} {input.query}) 2> {log}
+		{params.mummer}show-coords -r -c -H -d -o -T -l {params.pref}.delta > {params.pref}.coords
+		{params.mummer}show-snps -C -l -r -T -H {params.pref}.delta > {params.pref}.snps
+		{params.mummer}show-tiling {params.pref}.delta > {params.pref}.tiling
+		{params.mummer}mummerplot --postscript --prefix={params.pref} {params.pref}.delta
+		mv {params.pref}.* mummer/{wildcards.ass_type}
+
+		"""
 
 rule minimap2_1:
 	input:
@@ -985,9 +1141,58 @@ rule racon_1:
 	benchmark:
 		"benchmarks/racon1/assemblytype_{ass_type}_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishdepth_{polishdepth}_polishselect_{polishselect}.tsv",
 	resources:
+		time = lambda wildcards, input: (400 if wildcards.ass_type == "genome" else 1),
+		mem_mb = lambda wildcards, input: (60000 if wildcards.ass_type == "genome" else 3000),
+		cpu = lambda wildcards, input: (20 if wildcards.ass_type == "genome" else 1),
+	conda:
+		"envs/racon.yaml",
+	threads:
+		MAX_THREADS
+	shell:
+		"""
+		racon {input.reads} {input.sam} {input.draft} -u -t {threads} > {output}
+		"""
+
+rule minimap2_2:
+	input:
+		draft = "4_{ass_type}_polished/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/{polishdepth}_{polishselect}/1_assembly.fasta",
+		reads = "2_{ass_type}_subset/{polishselect}/{prefix}_{kmer}_{cov}_{polishdepth}.fasta",
+	output:
+		temp("4_{ass_type}_polished/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/{polishdepth}_{polishselect}/clr_mapped.sam"),
+	log:
+		"logs/minimap2_2/{ass_type}_{tool}_{prefix}_{read_select}_{kmer}_{cov}_{depth}_{polishselect}_{polishdepth}.log",
+	benchmark:
+		"benchmarks/minimap2run2/assemblytype_{ass_type}_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishdepth_{polishdepth}_polishselect_{polishselect}.tsv",
+	conda:
+		"envs/minimap2.yaml",
+	params:
+		dir = "4_{ass_type}_polished/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/{polishdepth}_{polishselect}",
+	resources:
 		time = lambda wildcards, input: (600 if wildcards.ass_type == "genome" else 1),
 		mem_mb = lambda wildcards, input: (30000 if wildcards.ass_type == "genome" else 3000),
 		cpu = lambda wildcards, input: (10 if wildcards.ass_type == "genome" else 1),
+	threads:
+		MAX_THREADS
+	shell:
+		"""
+		minimap2 -ax map-pb --eqx -m 5000 -t {threads} --secondary=no {input.draft} {input.reads} | samtools view -F 1796 - > {output}
+		"""
+
+rule racon_2:
+	input:
+		sam = "4_{ass_type}_polished/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/{polishdepth}_{polishselect}/clr_mapped.sam",
+		draft = "4_{ass_type}_polished/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/{polishdepth}_{polishselect}/1_assembly.fasta",
+		reads = "2_{ass_type}_subset/{polishselect}/{prefix}_{kmer}_{cov}_{polishdepth}.fasta",
+	output:
+		"4_{ass_type}_polished/{tool}/{prefix}/{read_select}_{kmer}_{cov}_{depth}/{polishdepth}_{polishselect}/2_assembly.fasta",
+	log:
+		"logs/racon_2/{ass_type}_{tool}_{prefix}_{read_select}_{kmer}_{cov}_{depth}_{polishdepth}_{polishselect}.log",
+	benchmark:
+		"benchmarks/racon2/assemblytype_{ass_type}_readselect_{read_select}_assemblytool_{tool}_prefix_{prefix}_kmer_{kmer}_cov_{cov}_depth_{depth}_polishdepth_{polishdepth}_polishselect_{polishselect}.tsv",
+	resources:
+		time = lambda wildcards, input: (400 if wildcards.ass_type == "genome" else 1),
+		mem_mb = lambda wildcards, input: (60000 if wildcards.ass_type == "genome" else 3000),
+		cpu = lambda wildcards, input: (20 if wildcards.ass_type == "genome" else 1),
 	conda:
 		"envs/racon.yaml",
 	threads:
