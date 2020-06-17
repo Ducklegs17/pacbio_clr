@@ -9,9 +9,17 @@ To run, follow these steps:
 
 1. Clone the repo
 2. Install tools as detailed below
-3. Create a folder called `reference` in the base directory and save the reference genome of interest in there under the name `genome.fasta`. Repeat for mitochondria and chloroplast references, naming them mitochondria.fasta and chloroplast.fasta. 
-4. Create a folder called '0_raw` that contains the raw CLR reads in .subreads.bam format. 
-5. Enter the prefix of this file into the `PREFIXES` variable at the very top of the Snakefile. 
+3. Create a folder called `reference` in the base directory and save the reference genome of interest in there under the name `genome.fasta`. Repeat for mitochondria and chloroplast references, naming them `mitochondria.fasta` and `chloroplast.fasta`. 
+4. Create a folder called `0_raw` that contains the raw CLR reads in .subreads.bam format. 
+5. Enter the prefix of this file into the `PREFIXES` variable at the very top of the Snakefile.
+6. Activate Snakemake
+7. Enter the desired file path (found in the `rule all:` section) with wildcards substituted for actual values 
+8. Multiple values can be specified for each wildcard
+
+eg. To create a 15x and 20x Canu assembly using bbduk parameters of 17 for kmer length and 0.7 for kmer read coverage, the following command would suffice
+`3_genome_assembly/canu/m64015_90510_20042/random_17_0.7_{15,20}/assembly.fasta`
+
+The workflow is set up to assemble nuclear genomes, chloroplast and mitochondria so `genome` must be specified as the {ASS_TYPE} wildcard
 
 ## Tools requiring installation
 
