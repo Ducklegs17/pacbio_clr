@@ -28,6 +28,8 @@ The workflow is set up to assemble nuclear genomes, chloroplast and mitochondria
 
 ## Tools requiring installation
 
+The majority of tools used are available via conda environments or as docker images. The following tools were not and require manual installation. The exact commands used are documented. The tools were all installed in a /tools folder on the same level as the pacbio_clr/ directory. The paths to the executables should be hard coded into variables at the beginning of the Snakefile.
+
 ### Wtdbg2
 ```
 git clone https://github.com/ruanjue/wtdbg2
