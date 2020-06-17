@@ -1,5 +1,7 @@
 # PacBio de novo CLR assembly and QA workflow
 
+## Still Under Development
+
 A reproducible Snakemake pipeline for the de-novo assembly and quality assessment of PacBio continuous long reads.
 
 ## Getting Set Up
@@ -57,3 +59,7 @@ make -j
 bin/filtlong -h
 ```
 
+## Still to do
+
+- select_longest doesn't fail when a coverage greater than is available is requested
+- when kmer coverage and kmer length are 0, don't extract chloroplast and mitochondrial reads from nuclear genome dataset
