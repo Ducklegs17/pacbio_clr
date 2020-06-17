@@ -17,7 +17,8 @@ To run, follow these steps:
 8. Multiple values can be specified for each wildcard
 
 eg. To create a 15x and 20x Canu assembly using bbduk parameters of 17 for kmer length and 0.7 for kmer read coverage, the following command would suffice
-`snakemake --profile profiles/slurm --use-conda --use-singularity_genome_assembly/canu/m64015_90510_20042/random_17_0.7_{15,20}/assembly.fasta`
+
+`snakemake --profile profiles/slurm --use-conda --use-singularity 3_genome_assembly/canu/m64015_90510_20042/random_17_0.7_{15,20}/assembly.fasta`
 
 Multiple different files can also be produced at once by specifying multiple filepaths.
 
